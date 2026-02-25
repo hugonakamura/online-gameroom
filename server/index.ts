@@ -29,9 +29,11 @@ type CoinSide = 'heads' | 'tails';
 type GamePhase = 'waiting' | 'choosing' | 'ready' | 'result';
 
 interface Player {
-  id: string;
+  id: string;       // current socket.id — changes on reconnect
+  sessionId: string; // persistent client identity (stored in localStorage)
   nickname: string;
   choice?: CoinSide;
+  disconnectTimer?: ReturnType<typeof setTimeout>;
 }
 
 interface Room {
@@ -43,7 +45,10 @@ interface Room {
 
 // ── State ──────────────────────────────────────────────────────────────────────
 const rooms = new Map<string, Room>();
-const socketRooms = new Map<string, string>(); // socketId -> roomId
+const socketRooms = new Map<string, string>(); // socketId  → roomId
+const sessions   = new Map<string, string>(); // sessionId → roomId
+
+const RECONNECT_GRACE_MS = 10_000; // 10 s to come back before being removed
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function getRoomState(room: Room) {
@@ -65,37 +70,72 @@ function getRoomState(room: Room) {
 io.on('connection', (socket) => {
   console.log(`[+] Connected: ${socket.id}`);
 
-  socket.on('join_room', ({ roomId, nickname }: { roomId: string; nickname: string }) => {
-    if (!roomId?.trim() || !nickname?.trim()) {
-      socket.emit('join_error', { message: 'Room ID and nickname are required.' });
-      return;
-    }
+  socket.on(
+    'join_room',
+    ({ roomId, nickname, sessionId }: { roomId: string; nickname: string; sessionId: string }) => {
+      if (!roomId?.trim() || !nickname?.trim()) {
+        socket.emit('join_error', { message: 'Room ID and nickname are required.' });
+        return;
+      }
 
-    const cleanRoomId = roomId.trim().toUpperCase().slice(0, 20);
-    const cleanNickname = nickname.trim().slice(0, 20);
+      // ── Reconnection path ──────────────────────────────────────────────────
+      // If this sessionId already has a slot in a room, restore it instead of
+      // creating a new player entry (handles network flickers / page refreshes).
+      const existingRoomId = sessions.get(sessionId);
+      if (existingRoomId) {
+        const existingRoom = rooms.get(existingRoomId);
+        if (existingRoom) {
+          const existingPlayer = existingRoom.players.find((p) => p.sessionId === sessionId);
+          if (existingPlayer) {
+            // Cancel pending removal timer
+            if (existingPlayer.disconnectTimer) {
+              clearTimeout(existingPlayer.disconnectTimer);
+              delete existingPlayer.disconnectTimer;
+            }
 
-    let room = rooms.get(cleanRoomId);
-    if (!room) {
-      room = { id: cleanRoomId, players: [], gamePhase: 'waiting' };
-      rooms.set(cleanRoomId, room);
-    }
+            // Swap the old socket.id for the new one
+            socketRooms.delete(existingPlayer.id);
+            existingPlayer.id = socket.id;
+            socketRooms.set(socket.id, existingRoomId);
+            socket.join(existingRoomId);
 
-    if (room.players.length >= 2) {
-      socket.emit('join_error', { message: 'Room is full (2/2).' });
-      return;
-    }
+            io.to(existingRoomId).emit('room_update', getRoomState(existingRoom));
+            console.log(`[~] ${existingPlayer.nickname} reconnected to ${existingRoomId}`);
+            return;
+          }
+        }
+        // Room is gone — let the session fall through to a normal join
+        sessions.delete(sessionId);
+      }
 
-    socket.join(cleanRoomId);
-    socketRooms.set(socket.id, cleanRoomId);
-    room.players.push({ id: socket.id, nickname: cleanNickname });
+      // ── Normal join path ───────────────────────────────────────────────────
+      const cleanRoomId   = roomId.trim().toUpperCase().slice(0, 20);
+      const cleanNickname = nickname.trim().slice(0, 20);
 
-    if (room.players.length === 2) {
-      room.gamePhase = 'choosing';
-    }
+      let room = rooms.get(cleanRoomId);
+      if (!room) {
+        room = { id: cleanRoomId, players: [], gamePhase: 'waiting' };
+        rooms.set(cleanRoomId, room);
+      }
 
-    io.to(cleanRoomId).emit('room_update', getRoomState(room));
-    console.log(`[+] ${cleanNickname} joined ${cleanRoomId} (${room.players.length}/2)`);
-  });
+      if (room.players.length >= 2) {
+        socket.emit('join_error', { message: 'Room is full (2/2).' });
+        return;
+      }
+
+      socket.join(cleanRoomId);
+      socketRooms.set(socket.id, cleanRoomId);
+      sessions.set(sessionId, cleanRoomId);
+      room.players.push({ id: socket.id, sessionId, nickname: cleanNickname });
+
+      if (room.players.length === 2) {
+        room.gamePhase = 'choosing';
+      }
+
+      io.to(cleanRoomId).emit('room_update', getRoomState(room));
+      console.log(`[+] ${cleanNickname} joined ${cleanRoomId} (${room.players.length}/2)`);
+    },
+  );
 
   socket.on('make_choice', ({ choice }: { choice: CoinSide }) => {
     const roomId = socketRooms.get(socket.id);
@@ -152,20 +192,32 @@ io.on('connection', (socket) => {
     const room = rooms.get(roomId);
     if (!room) return;
 
-    const leaving = room.players.find((p) => p.id === socket.id);
-    room.players = room.players.filter((p) => p.id !== socket.id);
+    const player = room.players.find((p) => p.id === socket.id);
+    if (!player) return;
 
-    if (room.players.length === 0) {
-      rooms.delete(roomId);
-      console.log(`[-] Room ${roomId} deleted (empty)`);
-    } else {
-      // Reset game — the remaining player waits for a new opponent
-      room.players.forEach((p) => { delete p.choice; });
-      room.flipResult = undefined;
-      room.gamePhase = 'waiting';
-      io.to(roomId).emit('room_update', getRoomState(room));
-      console.log(`[-] ${leaving?.nickname ?? socket.id} left ${roomId}`);
-    }
+    console.log(`[!] ${player.nickname} disconnected from ${roomId} — waiting ${RECONNECT_GRACE_MS / 1000}s`);
+
+    // Don't remove immediately. Give the client time to reconnect.
+    // If join_room arrives with the same sessionId within the window, the
+    // timer is cancelled and the slot is restored. Otherwise, they are removed.
+    player.disconnectTimer = setTimeout(() => {
+      // If player.id changed it means they already reconnected — do nothing.
+      if (player.id !== socket.id) return;
+
+      room.players = room.players.filter((p) => p.sessionId !== player.sessionId);
+      sessions.delete(player.sessionId);
+
+      if (room.players.length === 0) {
+        rooms.delete(roomId);
+        console.log(`[-] Room ${roomId} deleted (empty)`);
+      } else {
+        room.players.forEach((p) => { delete p.choice; });
+        room.flipResult = undefined;
+        room.gamePhase = 'waiting';
+        io.to(roomId).emit('room_update', getRoomState(room));
+        console.log(`[-] ${player.nickname} timed out, removed from ${roomId}`);
+      }
+    }, RECONNECT_GRACE_MS);
   });
 });
 

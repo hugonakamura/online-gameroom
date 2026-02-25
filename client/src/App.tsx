@@ -1,43 +1,92 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import JoinRoom from './components/JoinRoom';
 import GameRoom from './components/GameRoom';
 import { RoomState, CoinSide } from './types';
 
+// ── Persistent session identity ────────────────────────────────────────────────
+// A UUID stored in localStorage that survives page refreshes and socket
+// reconnects. The server uses it to restore a player's slot after a flicker.
+function getSessionId(): string {
+  const KEY = 'flip_socket_session';
+  let id = localStorage.getItem(KEY);
+  if (!id) {
+    // crypto.randomUUID() requires HTTPS — use a fallback that works over HTTP too
+    id = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+    });
+    localStorage.setItem(KEY, id);
+  }
+  return id;
+}
+
+function saveSession(roomId: string, nickname: string) {
+  localStorage.setItem('flip_socket_room', roomId);
+  localStorage.setItem('flip_socket_nickname', nickname);
+}
+
+function clearSession() {
+  localStorage.removeItem('flip_socket_room');
+  localStorage.removeItem('flip_socket_nickname');
+}
+
+// ── Component ──────────────────────────────────────────────────────────────────
 function App() {
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const [socket, setSocket]         = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [inRoom, setInRoom] = useState(false);
-  const [roomId, setRoomId] = useState('');
-  const [roomState, setRoomState] = useState<RoomState | null>(null);
-  const [joinError, setJoinError] = useState<string | null>(null);
-  // Local choice tracked client-side so the UI can highlight the selected button
-  // without revealing the choice to the opponent via the server state.
+  const [inRoom, setInRoom]         = useState(false);
+  const [roomId, setRoomId]         = useState('');
+  const [roomState, setRoomState]   = useState<RoomState | null>(null);
+  const [joinError, setJoinError]   = useState<string | null>(null);
   const [myLocalChoice, setMyLocalChoice] = useState<CoinSide | null>(null);
 
+  // Ref so socket event callbacks can read the latest "in room" state without
+  // needing to be re-registered when it changes.
+  const inRoomRef = useRef(false);
+
   useEffect(() => {
-    // In dev, Vite proxies /socket.io → localhost:3001 (see vite.config.ts).
-    // In production, the server serves the client at the same origin.
+    const sessionId = getSessionId();
     const s = io();
     setSocket(s);
 
-    s.on('connect', () => setIsConnected(true));
+    s.on('connect', () => {
+      setIsConnected(true);
+
+      // Auto-rejoin if localStorage has saved session data (handles reconnects
+      // and page refreshes — the server restores the slot via sessionId).
+      if (!inRoomRef.current) {
+        const savedRoom     = localStorage.getItem('flip_socket_room');
+        const savedNickname = localStorage.getItem('flip_socket_nickname');
+        if (savedRoom && savedNickname) {
+          setRoomId(savedRoom);
+          s.emit('join_room', { roomId: savedRoom, nickname: savedNickname, sessionId });
+        }
+      }
+    });
 
     s.on('disconnect', () => {
       setIsConnected(false);
-      setInRoom(false);
-      setRoomState(null);
-      setMyLocalChoice(null);
+      // Keep inRoom + roomState so the UI doesn't flash back to the join screen
+      // while Socket.io is trying to reconnect.
+      inRoomRef.current = false;
     });
 
     s.on('room_update', (state: RoomState) => {
       setRoomState(state);
       setInRoom(true);
+      inRoomRef.current = true;
       setJoinError(null);
     });
 
     s.on('join_error', ({ message }: { message: string }) => {
       setJoinError(message);
+      // If the server rejected us (room full, gone, etc.) clear the saved
+      // session so we don't keep retrying automatically.
+      clearSession();
+      setInRoom(false);
+      inRoomRef.current = false;
+      setRoomState(null);
     });
 
     return () => { s.disconnect(); };
@@ -46,8 +95,9 @@ function App() {
   const handleJoin = useCallback(
     (rid: string, nick: string) => {
       if (!socket) return;
+      saveSession(rid, nick);
       setRoomId(rid);
-      socket.emit('join_room', { roomId: rid, nickname: nick });
+      socket.emit('join_room', { roomId: rid, nickname: nick, sessionId: getSessionId() });
     },
     [socket],
   );
@@ -66,14 +116,14 @@ function App() {
 
   const handlePlayAgain = useCallback(() => {
     socket?.emit('play_again');
-    setMyLocalChoice(null); // Reset local highlight immediately
+    setMyLocalChoice(null);
   }, [socket]);
 
   if (!isConnected) {
     return (
       <div className="loading-screen">
         <div className="spinner" />
-        <p>Connecting to server…</p>
+        <p>{inRoom ? 'Reconnecting…' : 'Connecting to server…'}</p>
       </div>
     );
   }
