@@ -2,7 +2,7 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
-import { CoinSide, GamePhase, RoomState } from '../shared/types';
+import { CoinSide, GamePhase, RoomState, LobbyRoom } from '../shared/types';
 
 const app = express();
 const httpServer = createServer(app);
@@ -50,6 +50,16 @@ const sessions   = new Map<string, string>(); // sessionId → roomId
 const RECONNECT_GRACE_MS = 10_000; // 10 s to come back before being removed
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
+function getLobbyRooms(): LobbyRoom[] {
+  return Array.from(rooms.values())
+    .filter((r) => r.gamePhase === 'waiting' && r.players.length === 1)
+    .map((r) => ({ id: r.id, host: r.players[0].nickname }));
+}
+
+function broadcastLobby() {
+  io.to('lobby').emit('room_list', getLobbyRooms());
+}
+
 function getRoomState(room: Room): RoomState {
   return {
     players: room.players.map((p) => ({
@@ -69,6 +79,10 @@ function getRoomState(room: Room): RoomState {
 // ── Socket handlers ────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
   console.log(`[+] Connected: ${socket.id}`);
+
+  // New connections go to the lobby and immediately get the current room list.
+  socket.join('lobby');
+  socket.emit('room_list', getLobbyRooms());
 
   socket.on(
     'join_room',
@@ -97,6 +111,7 @@ io.on('connection', (socket) => {
             socketRooms.delete(existingPlayer.id);
             existingPlayer.id = socket.id;
             socketRooms.set(socket.id, existingRoomId);
+            socket.leave('lobby');
             socket.join(existingRoomId);
 
             io.to(existingRoomId).emit('room_update', getRoomState(existingRoom));
@@ -123,6 +138,7 @@ io.on('connection', (socket) => {
         return;
       }
 
+      socket.leave('lobby');
       socket.join(cleanRoomId);
       socketRooms.set(socket.id, cleanRoomId);
       sessions.set(sessionId, cleanRoomId);
@@ -133,6 +149,7 @@ io.on('connection', (socket) => {
       }
 
       io.to(cleanRoomId).emit('room_update', getRoomState(room));
+      broadcastLobby();
       console.log(`[+] ${cleanNickname} joined ${cleanRoomId} (${room.players.length}/2)`);
     },
   );
@@ -205,6 +222,8 @@ io.on('connection', (socket) => {
     sessions.delete(player.sessionId);
     socket.leave(roomId);
 
+    socket.join('lobby');
+
     if (room.players.length === 0) {
       rooms.delete(roomId);
       console.log(`[-] Room ${roomId} deleted (empty)`);
@@ -215,6 +234,8 @@ io.on('connection', (socket) => {
       io.to(roomId).emit('room_update', getRoomState(room));
       console.log(`[-] ${player.nickname} left ${roomId}`);
     }
+
+    broadcastLobby();
   });
 
   socket.on('disconnect', () => {
@@ -250,6 +271,8 @@ io.on('connection', (socket) => {
         io.to(roomId).emit('room_update', getRoomState(room));
         console.log(`[-] ${player.nickname} timed out, removed from ${roomId}`);
       }
+
+      broadcastLobby();
     }, RECONNECT_GRACE_MS);
   });
 });

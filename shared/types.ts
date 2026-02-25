@@ -21,3 +21,8 @@ export interface RoomState {
   flipResult?: CoinSide;
   playerCount: number;
 }
+
+export interface LobbyRoom {
+  id: string;
+  host: string; // nickname of the waiting player
+}

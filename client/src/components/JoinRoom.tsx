@@ -1,18 +1,30 @@
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useRef } from 'react';
+import { LobbyRoom } from '../types';
 
 interface Props {
   onJoin: (roomId: string, nickname: string) => void;
   error: string | null;
+  lobbyRooms: LobbyRoom[];
 }
 
-export default function JoinRoom({ onJoin, error }: Props) {
+export default function JoinRoom({ onJoin, error, lobbyRooms }: Props) {
   const [roomId, setRoomId] = useState('');
   const [nickname, setNickname] = useState('');
+  const nicknameRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!roomId.trim() || !nickname.trim()) return;
     onJoin(roomId.trim(), nickname.trim());
+  };
+
+  const handleQuickJoin = (id: string) => {
+    setRoomId(id);
+    if (nickname.trim()) {
+      onJoin(id, nickname.trim());
+    } else {
+      nicknameRef.current?.focus();
+    }
   };
 
   return (
@@ -42,6 +54,7 @@ export default function JoinRoom({ onJoin, error }: Props) {
           <div className="form-group">
             <label htmlFor="nickname">Nickname</label>
             <input
+              ref={nicknameRef}
               id="nickname"
               type="text"
               placeholder="Your display name"
@@ -62,6 +75,27 @@ export default function JoinRoom({ onJoin, error }: Props) {
             Join Room →
           </button>
         </form>
+
+        {lobbyRooms.length > 0 && (
+          <div className="lobby-rooms">
+            <p className="lobby-label">Open Rooms</p>
+            {lobbyRooms.map((room) => (
+              <div key={room.id} className="lobby-room-item">
+                <div className="lobby-room-info">
+                  <span className="lobby-room-id">{room.id}</span>
+                  <span className="lobby-room-host">{room.host} is waiting</span>
+                </div>
+                <button
+                  type="button"
+                  className="btn-join-lobby"
+                  onClick={() => handleQuickJoin(room.id)}
+                >
+                  Join
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         <p className="join-hint">
           Share the Room ID with a friend — the first two players to join will play together.

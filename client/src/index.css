@@ -160,6 +160,76 @@ body {
   line-height: 1.5;
 }
 
+/* ── Lobby Room List ──────────────────────────────────────────────────────── */
+.lobby-rooms {
+  margin-top: 24px;
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lobby-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 2px;
+}
+
+.lobby-room-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.lobby-room-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.lobby-room-id {
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.lobby-room-host {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btn-join-lobby {
+  flex-shrink: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(108, 99, 255, 0.4);
+  background: rgba(108, 99, 255, 0.08);
+  color: var(--accent);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-join-lobby:hover {
+  background: rgba(108, 99, 255, 0.18);
+  border-color: var(--accent);
+}
+
 /* ── Buttons ──────────────────────────────────────────────────────────────── */
 .btn {
   border: none;

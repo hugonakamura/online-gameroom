@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import JoinRoom from './components/JoinRoom';
 import GameRoom from './components/GameRoom';
-import { RoomState, CoinSide } from './types';
+import { RoomState, CoinSide, LobbyRoom } from './types';
 
 // ── Persistent session identity ────────────────────────────────────────────────
 // A UUID stored in localStorage that survives page refreshes and socket
@@ -40,6 +40,7 @@ function App() {
   const [roomState, setRoomState]   = useState<RoomState | null>(null);
   const [joinError, setJoinError]   = useState<string | null>(null);
   const [myLocalChoice, setMyLocalChoice] = useState<CoinSide | null>(null);
+  const [lobbyRooms, setLobbyRooms]       = useState<LobbyRoom[]>([]);
 
   // Ref so socket event callbacks can read the latest "in room" state without
   // needing to be re-registered when it changes.
@@ -77,6 +78,10 @@ function App() {
       setInRoom(true);
       inRoomRef.current = true;
       setJoinError(null);
+    });
+
+    s.on('room_list', (rooms: LobbyRoom[]) => {
+      setLobbyRooms(rooms);
     });
 
     s.on('join_error', ({ message }: { message: string }) => {
@@ -146,7 +151,7 @@ function App() {
   }
 
   if (!inRoom || !roomState) {
-    return <JoinRoom onJoin={handleJoin} error={joinError} />;
+    return <JoinRoom onJoin={handleJoin} error={joinError} lobbyRooms={lobbyRooms} />;
   }
 
   return (
