@@ -44,8 +44,8 @@ export default function JoinRoom({ onJoin, error, lobbyRooms, initialNickname }:
       <div className="join-card">
         <div className="join-header">
           <span className="coin-logo">🪙</span>
-          <h1>Flip-Socket</h1>
-          <p>Real-time multiplayer coin flip</p>
+          <h1>Game Room</h1>
+          <p>Real-time multiplayer games</p>
         </div>
 
         <form onSubmit={handleSubmit} className="join-form">
