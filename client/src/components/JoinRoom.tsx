@@ -5,15 +5,16 @@ interface Props {
   onJoin: (roomId: string, nickname: string, gameType: GameType) => void;
   error: string | null;
   lobbyRooms: LobbyRoom[];
+  initialNickname: string;
 }
 
 const GAME_OPTIONS: { value: GameType; label: string }[] = [
   { value: 'coin_flip', label: '🪙 Coin Flip' },
 ];
 
-export default function JoinRoom({ onJoin, error, lobbyRooms }: Props) {
+export default function JoinRoom({ onJoin, error, lobbyRooms, initialNickname }: Props) {
   const [roomId, setRoomId]     = useState('');
-  const [nickname, setNickname] = useState('');
+  const [nickname, setNickname] = useState(initialNickname);
   const [gameType, setGameType] = useState<GameType>('coin_flip');
   const nicknameRef = useRef<HTMLInputElement>(null);
 

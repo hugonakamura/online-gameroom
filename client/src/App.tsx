@@ -28,7 +28,7 @@ function saveSession(roomId: string, nickname: string) {
 
 function clearSession() {
   localStorage.removeItem('flip_socket_room');
-  localStorage.removeItem('flip_socket_nickname');
+  // Nickname is intentionally kept so the user doesn't have to re-type it.
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -151,7 +151,14 @@ function App() {
   }
 
   if (!inRoom || !roomState) {
-    return <JoinRoom onJoin={handleJoin} error={joinError} lobbyRooms={lobbyRooms} />;
+    return (
+      <JoinRoom
+        onJoin={handleJoin}
+        error={joinError}
+        lobbyRooms={lobbyRooms}
+        initialNickname={localStorage.getItem('flip_socket_nickname') ?? ''}
+      />
+    );
   }
 
   return (
