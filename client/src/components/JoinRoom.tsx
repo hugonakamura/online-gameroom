@@ -113,7 +113,10 @@ export default function JoinRoom({ onJoin, error, lobbyRooms, initialNickname }:
               <div key={room.id} className="lobby-room-item">
                 <div className="lobby-room-info">
                   <span className="lobby-room-id">{room.id}</span>
-                  <span className="lobby-room-host">{room.host} is waiting</span>
+                  <span className="lobby-room-host">
+                    {room.playerCount} {room.playerCount === 1 ? 'player' : 'players'} ·{' '}
+                    {room.gamePhase === 'waiting' ? `${room.host} is waiting` : 'In progress'}
+                  </span>
                 </div>
                 <button
                   type="button"

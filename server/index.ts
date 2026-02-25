@@ -53,8 +53,14 @@ const RECONNECT_GRACE_MS = 10_000; // 10 s to come back before being removed
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function getLobbyRooms(): LobbyRoom[] {
   return Array.from(rooms.values())
-    .filter((r) => r.gamePhase === 'waiting' && r.players.length === 1)
-    .map((r) => ({ id: r.id, host: r.players[0].nickname, gameType: r.gameType }));
+    .filter((r) => r.players.length >= 1)
+    .map((r) => ({
+      id: r.id,
+      host: r.players[0].nickname,
+      gameType: r.gameType,
+      playerCount: r.players.length,
+      gamePhase: r.gamePhase,
+    }));
 }
 
 function broadcastLobby() {
@@ -138,18 +144,16 @@ io.on('connection', (socket) => {
         rooms.set(cleanRoomId, room);
       }
 
-      if (room.players.length >= 2) {
-        socket.emit('join_error', { message: 'Room is full (2/2).' });
-        return;
-      }
-
       socket.leave('lobby');
       socket.join(cleanRoomId);
       socketRooms.set(socket.id, cleanRoomId);
       sessions.set(sessionId, cleanRoomId);
       room.players.push({ id: socket.id, sessionId, nickname: cleanNickname, score: 0 });
 
-      if (room.players.length === 2) {
+      if (room.gamePhase === 'waiting' && room.players.length >= 2) {
+        room.gamePhase = 'choosing';
+      } else if (room.gamePhase === 'ready') {
+        // New player joined while everyone else was ready — they still need to choose.
         room.gamePhase = 'choosing';
       }
 
@@ -172,7 +176,7 @@ io.on('connection', (socket) => {
 
     player.choice = choice;
 
-    const allChosen = room.players.length === 2 && room.players.every((p) => p.choice);
+    const allChosen = room.players.length >= 2 && room.players.every((p) => p.choice);
     room.gamePhase = allChosen ? 'ready' : 'choosing';
 
     io.to(roomId).emit('room_update', getRoomState(room));
@@ -235,7 +239,7 @@ io.on('connection', (socket) => {
     } else {
       room.players.forEach((p) => { delete p.choice; });
       room.flipResult = undefined;
-      room.gamePhase = 'waiting';
+      room.gamePhase = room.players.length >= 2 ? 'choosing' : 'waiting';
       io.to(roomId).emit('room_update', getRoomState(room));
       console.log(`[-] ${player.nickname} left ${roomId}`);
     }

@@ -79,7 +79,7 @@ export default function GameRoom({
   }, [roomState.gamePhase]);
 
   const me = roomState.players.find((p) => p.id === socketId);
-  const opponent = roomState.players.find((p) => p.id !== socketId);
+  const opponents = roomState.players.filter((p) => p.id !== socketId);
 
   // A player wins if their choice matches the flip result
   const iWon =
@@ -94,9 +94,9 @@ export default function GameRoom({
 
   const phaseMessage = () => {
     switch (roomState.gamePhase) {
-      case 'waiting':  return 'Waiting for another player to join…';
-      case 'choosing': return me?.hasChosen ? 'Waiting for your opponent…' : 'Pick your side!';
-      case 'ready':    return 'Both players ready — flip the coin!';
+      case 'waiting':  return 'Waiting for more players to join…';
+      case 'choosing': return me?.hasChosen ? 'Waiting for others…' : 'Pick your side!';
+      case 'ready':    return 'Everyone\'s ready — flip the coin!';
       case 'result':   return `The coin landed on ${roomState.flipResult}!`;
     }
   };
@@ -117,8 +117,8 @@ export default function GameRoom({
           <span className="room-label">Room</span>
           <span className="room-id">{roomId}</span>
         </div>
-        <div className={`player-count${roomState.playerCount === 2 ? ' full' : ''}`}>
-          {roomState.playerCount}/2 players
+        <div className={`player-count${roomState.playerCount >= 2 ? ' full' : ''}`}>
+          {roomState.playerCount} {roomState.playerCount === 1 ? 'player' : 'players'}
         </div>
         <button className="btn-leave" onClick={onLeave}>Leave</button>
       </header>
@@ -134,15 +134,6 @@ export default function GameRoom({
               gamePhase={roomState.gamePhase}
             />
           ))}
-          {roomState.playerCount < 2 && (
-            <div className="player-card player-empty">
-              <div className="player-avatar">?</div>
-              <div className="player-info">
-                <span className="player-name">Empty slot</span>
-                <span className="player-status">Waiting…</span>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Coin */}
@@ -187,9 +178,9 @@ export default function GameRoom({
                 <p className="result-detail">
                   You chose <strong>{me.choice}</strong> · Coin:{' '}
                   <strong>{roomState.flipResult}</strong>
-                  {opponent?.choice && (
-                    <> · {opponent.nickname} chose <strong>{opponent.choice}</strong></>
-                  )}
+                  {opponents.filter((p) => p.choice).map((p) => (
+                    <span key={p.id}> · {p.nickname}: <strong>{p.choice}</strong></span>
+                  ))}
                 </p>
               )}
               <button className="btn btn-primary" onClick={onPlayAgain}>

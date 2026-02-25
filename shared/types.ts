@@ -26,6 +26,8 @@ export interface RoomState {
 
 export interface LobbyRoom {
   id: string;
-  host: string; // nickname of the waiting player
+  host: string; // nickname of the first player
   gameType: GameType;
+  playerCount: number;
+  gamePhase: GamePhase;
 }

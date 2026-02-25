@@ -383,15 +383,16 @@ body {
 /* ── Players Section ──────────────────────────────────────────────────────── */
 .players-section {
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
   width: 100%;
-  max-width: 560px;
+  max-width: 720px;
   justify-content: center;
 }
 
 .player-card {
-  flex: 1;
-  max-width: 220px;
+  flex: 1 1 180px;
+  max-width: 240px;
   display: flex;
   align-items: center;
   gap: 12px;
