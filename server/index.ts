@@ -2,6 +2,7 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
+import { CoinSide, GamePhase, RoomState } from '../shared/types';
 
 const app = express();
 const httpServer = createServer(app);
@@ -17,7 +18,7 @@ const PORT = process.env.PORT || 3001;
 
 // Serve React app in production
 if (process.env.NODE_ENV === 'production') {
-  const clientDist = path.join(__dirname, '..', 'client', 'dist');
+  const clientDist = path.join(__dirname, '..', '..', 'client', 'dist');
   app.use(express.static(clientDist));
   app.get('*', (_req, res) => {
     res.sendFile(path.join(clientDist, 'index.html'));
@@ -25,9 +26,6 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-type CoinSide = 'heads' | 'tails';
-type GamePhase = 'waiting' | 'choosing' | 'ready' | 'result';
-
 interface Player {
   id: string;       // current socket.id — changes on reconnect
   sessionId: string; // persistent client identity (stored in localStorage)
@@ -51,7 +49,7 @@ const sessions   = new Map<string, string>(); // sessionId → roomId
 const RECONNECT_GRACE_MS = 10_000; // 10 s to come back before being removed
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-function getRoomState(room: Room) {
+function getRoomState(room: Room): RoomState {
   return {
     players: room.players.map((p) => ({
       id: p.id,
