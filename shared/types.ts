@@ -5,6 +5,7 @@
 
 export type CoinSide = 'heads' | 'tails';
 export type GamePhase = 'waiting' | 'choosing' | 'ready' | 'result';
+export type GameType = 'coin_flip';
 
 export interface PlayerState {
   id: string;
@@ -18,6 +19,7 @@ export interface PlayerState {
 export interface RoomState {
   players: PlayerState[];
   gamePhase: GamePhase;
+  gameType: GameType;
   flipResult?: CoinSide;
   playerCount: number;
 }
@@ -25,4 +27,5 @@ export interface RoomState {
 export interface LobbyRoom {
   id: string;
   host: string; // nickname of the waiting player
+  gameType: GameType;
 }

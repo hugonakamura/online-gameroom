@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import JoinRoom from './components/JoinRoom';
 import GameRoom from './components/GameRoom';
-import { RoomState, CoinSide, LobbyRoom } from './types';
+import { RoomState, CoinSide, LobbyRoom, GameType } from './types';
 
 // ── Persistent session identity ────────────────────────────────────────────────
 // A UUID stored in localStorage that survives page refreshes and socket
@@ -98,11 +98,11 @@ function App() {
   }, []);
 
   const handleJoin = useCallback(
-    (rid: string, nick: string) => {
+    (rid: string, nick: string, gameType: GameType) => {
       if (!socket) return;
       saveSession(rid, nick);
       setRoomId(rid);
-      socket.emit('join_room', { roomId: rid, nickname: nick, sessionId: getSessionId() });
+      socket.emit('join_room', { roomId: rid, nickname: nick, sessionId: getSessionId(), gameType });
     },
     [socket],
   );

@@ -2,7 +2,7 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
-import { CoinSide, GamePhase, RoomState, LobbyRoom } from '../shared/types';
+import { CoinSide, GamePhase, GameType, RoomState, LobbyRoom } from '../shared/types';
 
 const app = express();
 const httpServer = createServer(app);
@@ -39,6 +39,7 @@ interface Room {
   id: string;
   players: Player[];
   gamePhase: GamePhase;
+  gameType: GameType;
   flipResult?: CoinSide;
 }
 
@@ -53,7 +54,7 @@ const RECONNECT_GRACE_MS = 10_000; // 10 s to come back before being removed
 function getLobbyRooms(): LobbyRoom[] {
   return Array.from(rooms.values())
     .filter((r) => r.gamePhase === 'waiting' && r.players.length === 1)
-    .map((r) => ({ id: r.id, host: r.players[0].nickname }));
+    .map((r) => ({ id: r.id, host: r.players[0].nickname, gameType: r.gameType }));
 }
 
 function broadcastLobby() {
@@ -71,6 +72,7 @@ function getRoomState(room: Room): RoomState {
       choice: room.gamePhase === 'result' ? p.choice : undefined,
     })),
     gamePhase: room.gamePhase,
+    gameType: room.gameType,
     flipResult: room.flipResult,
     playerCount: room.players.length,
   };
@@ -86,7 +88,7 @@ io.on('connection', (socket) => {
 
   socket.on(
     'join_room',
-    ({ roomId, nickname, sessionId }: { roomId: string; nickname: string; sessionId: string }) => {
+    ({ roomId, nickname, sessionId, gameType }: { roomId: string; nickname: string; sessionId: string; gameType: GameType }) => {
       if (!roomId?.trim() || !nickname?.trim()) {
         socket.emit('join_error', { message: 'Room ID and nickname are required.' });
         return;
@@ -129,7 +131,10 @@ io.on('connection', (socket) => {
 
       let room = rooms.get(cleanRoomId);
       if (!room) {
-        room = { id: cleanRoomId, players: [], gamePhase: 'waiting' };
+        // Only the first player (creator) sets the game type.
+        const validGameTypes: GameType[] = ['coin_flip'];
+        const safeGameType: GameType = validGameTypes.includes(gameType) ? gameType : 'coin_flip';
+        room = { id: cleanRoomId, players: [], gamePhase: 'waiting', gameType: safeGameType };
         rooms.set(cleanRoomId, room);
       }
 
