@@ -25,19 +25,23 @@ Player B ──┘
 
 ```
 flip-socket/
+├── shared/               # Shared TypeScript types (single source of truth)
+│   └── types.ts          #   CoinSide, GamePhase, PlayerState, RoomState
 ├── server/               # Node.js + Express + Socket.io
-│   └── index.ts
+│   └── index.ts          #   imports from ../shared/types
 ├── client/               # React + Vite app
 │   ├── src/
 │   │   ├── App.tsx
-│   │   ├── types.ts
+│   │   ├── types.ts      #   re-exports from ../../shared/types
 │   │   ├── index.css
 │   │   └── components/
 │   │       ├── JoinRoom.tsx
 │   │       └── GameRoom.tsx
 │   └── vite.config.ts
 ├── dist/                 # Compiled server output (git-ignored)
-├── tsconfig.json         # Server TypeScript config
+│   └── server/
+│       └── index.js      #   entry point (rootDir "." mirrors src layout)
+├── tsconfig.json         # Server TypeScript config (rootDir: ".")
 ├── package.json          # Server deps + build scripts
 └── render.yaml           # Render.com deployment config
 ```
@@ -84,7 +88,7 @@ Enter the **same Room ID** in both tabs, pick your sides, and flip!
 | `npm run dev` | Start both server and client in watch mode |
 | `npm run dev:server` | Start only the backend |
 | `npm run dev:client` | Start only the frontend |
-| `npm run build` | Build client (to `client/dist/`) then compile server (to `dist/`) |
+| `npm run build` | Build client (to `client/dist/`) then compile server (to `dist/server/`) |
 | `npm start` | Run the compiled production server |
 
 ## Deploying to Render.com
