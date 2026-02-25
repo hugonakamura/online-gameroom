@@ -102,6 +102,14 @@ function App() {
     [socket],
   );
 
+  // Reset local choice whenever a new round starts (phase → 'choosing'),
+  // regardless of which player triggered play_again.
+  useEffect(() => {
+    if (roomState?.gamePhase === 'choosing') {
+      setMyLocalChoice(null);
+    }
+  }, [roomState?.gamePhase]);
+
   const handleChoice = useCallback(
     (choice: CoinSide) => {
       socket?.emit('make_choice', { choice });
@@ -116,6 +124,15 @@ function App() {
 
   const handlePlayAgain = useCallback(() => {
     socket?.emit('play_again');
+    setMyLocalChoice(null);
+  }, [socket]);
+
+  const handleLeave = useCallback(() => {
+    socket?.emit('leave_room');
+    clearSession();
+    setInRoom(false);
+    inRoomRef.current = false;
+    setRoomState(null);
     setMyLocalChoice(null);
   }, [socket]);
 
@@ -141,6 +158,7 @@ function App() {
       onChoice={handleChoice}
       onFlip={handleFlip}
       onPlayAgain={handlePlayAgain}
+      onLeave={handleLeave}
     />
   );
 }

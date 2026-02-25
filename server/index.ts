@@ -30,6 +30,7 @@ interface Player {
   id: string;       // current socket.id — changes on reconnect
   sessionId: string; // persistent client identity (stored in localStorage)
   nickname: string;
+  score: number;
   choice?: CoinSide;
   disconnectTimer?: ReturnType<typeof setTimeout>;
 }
@@ -55,6 +56,7 @@ function getRoomState(room: Room): RoomState {
       id: p.id,
       nickname: p.nickname,
       hasChosen: !!p.choice,
+      score: p.score,
       // Choices are hidden until result to prevent cheating
       choice: room.gamePhase === 'result' ? p.choice : undefined,
     })),
@@ -124,7 +126,7 @@ io.on('connection', (socket) => {
       socket.join(cleanRoomId);
       socketRooms.set(socket.id, cleanRoomId);
       sessions.set(sessionId, cleanRoomId);
-      room.players.push({ id: socket.id, sessionId, nickname: cleanNickname });
+      room.players.push({ id: socket.id, sessionId, nickname: cleanNickname, score: 0 });
 
       if (room.players.length === 2) {
         room.gamePhase = 'choosing';
@@ -164,6 +166,10 @@ io.on('connection', (socket) => {
     room.flipResult = Math.random() < 0.5 ? 'heads' : 'tails';
     room.gamePhase = 'result';
 
+    room.players
+      .filter((p) => p.choice === room.flipResult)
+      .forEach((p) => { p.score += 1; });
+
     io.to(roomId).emit('room_update', getRoomState(room));
     console.log(`[~] Room ${roomId}: flipped → ${room.flipResult}`);
   });
@@ -180,6 +186,35 @@ io.on('connection', (socket) => {
     room.gamePhase = 'choosing';
 
     io.to(roomId).emit('room_update', getRoomState(room));
+  });
+
+  socket.on('leave_room', () => {
+    const roomId = socketRooms.get(socket.id);
+    if (!roomId) return;
+    socketRooms.delete(socket.id);
+
+    const room = rooms.get(roomId);
+    if (!room) return;
+
+    const player = room.players.find((p) => p.id === socket.id);
+    if (!player) return;
+
+    if (player.disconnectTimer) clearTimeout(player.disconnectTimer);
+
+    room.players = room.players.filter((p) => p.id !== socket.id);
+    sessions.delete(player.sessionId);
+    socket.leave(roomId);
+
+    if (room.players.length === 0) {
+      rooms.delete(roomId);
+      console.log(`[-] Room ${roomId} deleted (empty)`);
+    } else {
+      room.players.forEach((p) => { delete p.choice; });
+      room.flipResult = undefined;
+      room.gamePhase = 'waiting';
+      io.to(roomId).emit('room_update', getRoomState(room));
+      console.log(`[-] ${player.nickname} left ${roomId}`);
+    }
   });
 
   socket.on('disconnect', () => {

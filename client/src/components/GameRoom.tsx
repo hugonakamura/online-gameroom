@@ -9,6 +9,7 @@ interface Props {
   onChoice: (choice: CoinSide) => void;
   onFlip: () => void;
   onPlayAgain: () => void;
+  onLeave: () => void;
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
@@ -43,6 +44,10 @@ function PlayerCard({
           {statusText()}
         </span>
       </div>
+      <div className="player-score">
+        <span className="score-value">{player.score}</span>
+        <span className="score-label">pts</span>
+      </div>
     </div>
   );
 }
@@ -57,6 +62,7 @@ export default function GameRoom({
   onChoice,
   onFlip,
   onPlayAgain,
+  onLeave,
 }: Props) {
   const [isFlipping, setIsFlipping] = useState(false);
   const prevPhaseRef = useRef<GamePhase>(roomState.gamePhase);
@@ -114,6 +120,7 @@ export default function GameRoom({
         <div className={`player-count${roomState.playerCount === 2 ? ' full' : ''}`}>
           {roomState.playerCount}/2 players
         </div>
+        <button className="btn-leave" onClick={onLeave}>Leave</button>
       </header>
 
       <div className="game-content">

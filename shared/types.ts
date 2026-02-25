@@ -10,6 +10,7 @@ export interface PlayerState {
   id: string;
   nickname: string;
   hasChosen: boolean;
+  score: number;
   /** Only populated in the 'result' phase; hidden before then to prevent cheating */
   choice?: CoinSide;
 }
