@@ -17,6 +17,7 @@ export interface PlayerState {
 }
 
 export interface RoomState {
+  roomId: string;
   players: PlayerState[];
   gamePhase: GamePhase;
   gameType: GameType;

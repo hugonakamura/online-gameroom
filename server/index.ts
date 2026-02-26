@@ -35,6 +35,13 @@ const sessions   = new Map<string, string>(); // sessionId → roomId
 const RECONNECT_GRACE_MS = 10_000; // 10 s to come back before being removed
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
+function generateRoomId(gameType: GameType): string {
+  const prefix: Record<GameType, string> = { coin_flip: 'FLIP' };
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // excludes O, 0, 1, I to avoid confusion
+  const rand = Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  return `${prefix[gameType]}-${rand}`;
+}
+
 function getLobbyRooms(): LobbyRoom[] {
   return Array.from(rooms.values())
     .filter((r) => r.players.length >= 1)
@@ -53,6 +60,7 @@ function broadcastLobby() {
 
 function getRoomState(room: Room): RoomState {
   return {
+    roomId: room.id,
     players: room.players.map((p) => ({
       id: p.id,
       nickname: p.nickname,
@@ -75,6 +83,37 @@ io.on('connection', (socket) => {
   // New connections go to the lobby and immediately get the current room list.
   socket.join('lobby');
   socket.emit('room_list', getLobbyRooms());
+
+  socket.on(
+    'create_room',
+    ({ nickname, sessionId, gameType }: { nickname: string; sessionId: string; gameType: GameType }) => {
+      if (!nickname?.trim()) {
+        socket.emit('join_error', { message: 'Nickname is required.' });
+        return;
+      }
+
+      const cleanNickname = nickname.trim().slice(0, 20);
+      const validGameTypes: GameType[] = ['coin_flip'];
+      const safeGameType: GameType = validGameTypes.includes(gameType) ? gameType : 'coin_flip';
+
+      // Generate a collision-free room ID
+      let roomId = generateRoomId(safeGameType);
+      while (rooms.has(roomId)) roomId = generateRoomId(safeGameType);
+
+      const room: Room = { id: roomId, players: [], gamePhase: 'waiting', gameType: safeGameType };
+      rooms.set(roomId, room);
+
+      socket.leave('lobby');
+      socket.join(roomId);
+      socketRooms.set(socket.id, roomId);
+      sessions.set(sessionId, roomId);
+      room.players.push({ id: socket.id, sessionId, nickname: cleanNickname, score: 0 });
+
+      io.to(roomId).emit('room_update', getRoomState(room));
+      broadcastLobby();
+      console.log(`[+] ${cleanNickname} created ${roomId} (${safeGameType})`);
+    },
+  );
 
   socket.on(
     'join_room',

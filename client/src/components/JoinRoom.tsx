@@ -3,6 +3,7 @@ import { LobbyRoom, GameType } from '../types';
 
 interface Props {
   onJoin: (roomId: string, nickname: string, gameType: GameType) => void;
+  onCreate: (nickname: string, gameType: GameType) => void;
   error: string | null;
   lobbyRooms: LobbyRoom[];
   initialNickname: string;
@@ -12,28 +13,20 @@ const GAME_OPTIONS: { value: GameType; label: string }[] = [
   { value: 'coin_flip', label: '🪙 Coin Flip' },
 ];
 
-export default function JoinRoom({ onJoin, error, lobbyRooms, initialNickname }: Props) {
-  const [roomId, setRoomId]     = useState('');
+export default function JoinRoom({ onJoin, onCreate, error, lobbyRooms, initialNickname }: Props) {
   const [nickname, setNickname] = useState(initialNickname);
   const [gameType, setGameType] = useState<GameType>('coin_flip');
   const nicknameRef = useRef<HTMLInputElement>(null);
 
-  // If the typed room ID matches an open lobby room, lock the game type to that room's.
-  const matchedRoom = lobbyRooms.find((r) => r.id === roomId.trim().toUpperCase());
-  const effectiveGameType: GameType = matchedRoom ? matchedRoom.gameType : gameType;
-  const isJoining = !!matchedRoom;
-
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (!roomId.trim() || !nickname.trim()) return;
-    onJoin(roomId.trim(), nickname.trim(), effectiveGameType);
+    if (!nickname.trim()) return;
+    onCreate(nickname.trim(), gameType);
   };
 
-  const handleQuickJoin = (id: string) => {
-    setRoomId(id);
+  const handleQuickJoin = (room: LobbyRoom) => {
     if (nickname.trim()) {
-      const room = lobbyRooms.find((r) => r.id === id);
-      onJoin(id, nickname.trim(), room?.gameType ?? gameType);
+      onJoin(room.id, nickname.trim(), room.gameType);
     } else {
       nicknameRef.current?.focus();
     }
@@ -50,20 +43,6 @@ export default function JoinRoom({ onJoin, error, lobbyRooms, initialNickname }:
 
         <form onSubmit={handleSubmit} className="join-form">
           <div className="form-group">
-            <label htmlFor="roomId">Room ID</label>
-            <input
-              id="roomId"
-              type="text"
-              placeholder="e.g. GAME1"
-              value={roomId}
-              onChange={(e) => setRoomId(e.target.value.toUpperCase())}
-              maxLength={20}
-              autoComplete="off"
-              spellCheck={false}
-            />
-          </div>
-
-          <div className="form-group">
             <label htmlFor="nickname">Nickname</label>
             <input
               ref={nicknameRef}
@@ -78,16 +57,12 @@ export default function JoinRoom({ onJoin, error, lobbyRooms, initialNickname }:
           </div>
 
           <div className="form-group">
-            <label htmlFor="gameType">
-              Game
-              {isJoining && <span className="game-locked-badge"> · set by host</span>}
-            </label>
+            <label htmlFor="gameType">Game</label>
             <select
               id="gameType"
               className="game-select"
-              value={effectiveGameType}
+              value={gameType}
               onChange={(e) => setGameType(e.target.value as GameType)}
-              disabled={isJoining}
             >
               {GAME_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -100,9 +75,9 @@ export default function JoinRoom({ onJoin, error, lobbyRooms, initialNickname }:
           <button
             type="submit"
             className="btn btn-primary"
-            disabled={!roomId.trim() || !nickname.trim()}
+            disabled={!nickname.trim()}
           >
-            {isJoining ? 'Join Room →' : 'Create & Join →'}
+            Create Room →
           </button>
         </form>
 
@@ -121,7 +96,7 @@ export default function JoinRoom({ onJoin, error, lobbyRooms, initialNickname }:
                 <button
                   type="button"
                   className="btn-join-lobby"
-                  onClick={() => handleQuickJoin(room.id)}
+                  onClick={() => handleQuickJoin(room)}
                 >
                   Join
                 </button>
@@ -131,7 +106,7 @@ export default function JoinRoom({ onJoin, error, lobbyRooms, initialNickname }:
         )}
 
         <p className="join-hint">
-          Share the Room ID with a friend — the first two players to join will play together.
+          Create a room and share the room code — or join an existing room from the list above.
         </p>
       </div>
     </div>

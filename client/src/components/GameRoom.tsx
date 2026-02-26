@@ -1,14 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
-import { RoomState, CoinSide, GamePhase, PlayerState } from '../types';
+import { RoomState, GamePhase, PlayerState } from '../types';
+import { gameViews } from './games';
 
 interface Props {
   roomId: string;
   socketId: string;
   roomState: RoomState;
-  myLocalChoice: CoinSide | null;
-  onChoice: (choice: CoinSide) => void;
-  onFlip: () => void;
-  onPlayAgain: () => void;
+  emit: (event: string, payload?: unknown) => void;
   onLeave: () => void;
 }
 
@@ -54,60 +51,8 @@ function PlayerCard({
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 
-export default function GameRoom({
-  roomId,
-  socketId,
-  roomState,
-  myLocalChoice,
-  onChoice,
-  onFlip,
-  onPlayAgain,
-  onLeave,
-}: Props) {
-  const [isFlipping, setIsFlipping] = useState(false);
-  const prevPhaseRef = useRef<GamePhase>(roomState.gamePhase);
-
-  // Trigger the coin animation exactly once when the phase transitions to 'result'
-  useEffect(() => {
-    if (roomState.gamePhase === 'result' && prevPhaseRef.current !== 'result') {
-      setIsFlipping(true);
-      const t = setTimeout(() => setIsFlipping(false), 1200);
-      prevPhaseRef.current = roomState.gamePhase;
-      return () => clearTimeout(t);
-    }
-    prevPhaseRef.current = roomState.gamePhase;
-  }, [roomState.gamePhase]);
-
-  const me = roomState.players.find((p) => p.id === socketId);
-  const opponents = roomState.players.filter((p) => p.id !== socketId);
-
-  // A player wins if their choice matches the flip result
-  const iWon =
-    roomState.gamePhase === 'result' &&
-    roomState.flipResult != null &&
-    me?.choice === roomState.flipResult;
-
-  const coinEmoji = () => {
-    if (roomState.gamePhase !== 'result') return '🪙';
-    return roomState.flipResult === 'heads' ? '👑' : '🦅';
-  };
-
-  const phaseMessage = () => {
-    switch (roomState.gamePhase) {
-      case 'waiting':  return 'Waiting for more players to join…';
-      case 'choosing': return me?.hasChosen ? 'Waiting for others…' : 'Pick your side!';
-      case 'ready':    return 'Everyone\'s ready — flip the coin!';
-      case 'result':   return `The coin landed on ${roomState.flipResult}!`;
-    }
-  };
-
-  const coinClass = [
-    'coin-display',
-    roomState.gamePhase === 'result' ? roomState.flipResult : '',
-    isFlipping ? 'flipping' : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
+export default function GameRoom({ roomId, socketId, roomState, emit, onLeave }: Props) {
+  const GameView = gameViews[roomState.gameType];
 
   return (
     <div className="game-screen">
@@ -136,59 +81,8 @@ export default function GameRoom({
           ))}
         </div>
 
-        {/* Coin */}
-        <div className="coin-section">
-          <div className={coinClass}>
-            <span className="coin-inner">{coinEmoji()}</span>
-          </div>
-          <p className="phase-message">{phaseMessage()}</p>
-        </div>
-
-        {/* Actions */}
-        <div className="actions-section">
-          {roomState.gamePhase === 'choosing' && (
-            <div className="choice-buttons">
-              <button
-                className={`btn btn-choice btn-heads${myLocalChoice === 'heads' ? ' selected' : ''}`}
-                onClick={() => onChoice('heads')}
-              >
-                👑 Heads
-              </button>
-              <button
-                className={`btn btn-choice btn-tails${myLocalChoice === 'tails' ? ' selected' : ''}`}
-                onClick={() => onChoice('tails')}
-              >
-                🦅 Tails
-              </button>
-            </div>
-          )}
-
-          {roomState.gamePhase === 'ready' && (
-            <button className="btn btn-flip" onClick={onFlip}>
-              Flip!
-            </button>
-          )}
-
-          {roomState.gamePhase === 'result' && (
-            <div className="result-section">
-              <div className={`result-banner ${iWon ? 'win' : 'lose'}`}>
-                {iWon ? '🎉 You Win!' : '😔 Better luck next time!'}
-              </div>
-              {me?.choice && (
-                <p className="result-detail">
-                  You chose <strong>{me.choice}</strong> · Coin:{' '}
-                  <strong>{roomState.flipResult}</strong>
-                  {opponents.filter((p) => p.choice).map((p) => (
-                    <span key={p.id}> · {p.nickname}: <strong>{p.choice}</strong></span>
-                  ))}
-                </p>
-              )}
-              <button className="btn btn-primary" onClick={onPlayAgain}>
-                Play Again
-              </button>
-            </div>
-          )}
-        </div>
+        {/* Game-specific UI — resolved from the registry by game type */}
+        <GameView roomState={roomState} socketId={socketId} emit={emit} />
       </div>
     </div>
   );

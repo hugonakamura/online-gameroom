@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import JoinRoom from './components/JoinRoom';
 import GameRoom from './components/GameRoom';
-import { RoomState, CoinSide, LobbyRoom, GameType } from './types';
+import { RoomState, LobbyRoom, GameType } from './types';
 
 // ── Persistent session identity ────────────────────────────────────────────────
 // A UUID stored in localStorage that survives page refreshes and socket
@@ -21,11 +21,6 @@ function getSessionId(): string {
   return id;
 }
 
-function saveSession(roomId: string, nickname: string) {
-  localStorage.setItem('flip_socket_room', roomId);
-  localStorage.setItem('flip_socket_nickname', nickname);
-}
-
 function clearSession() {
   localStorage.removeItem('flip_socket_room');
   // Nickname is intentionally kept so the user doesn't have to re-type it.
@@ -39,8 +34,7 @@ function App() {
   const [roomId, setRoomId]         = useState('');
   const [roomState, setRoomState]   = useState<RoomState | null>(null);
   const [joinError, setJoinError]   = useState<string | null>(null);
-  const [myLocalChoice, setMyLocalChoice] = useState<CoinSide | null>(null);
-  const [lobbyRooms, setLobbyRooms]       = useState<LobbyRoom[]>([]);
+  const [lobbyRooms, setLobbyRooms] = useState<LobbyRoom[]>([]);
 
   // Ref so socket event callbacks can read the latest "in room" state without
   // needing to be re-registered when it changes.
@@ -75,6 +69,8 @@ function App() {
 
     s.on('room_update', (state: RoomState) => {
       setRoomState(state);
+      setRoomId(state.roomId);
+      localStorage.setItem('flip_socket_room', state.roomId);
       setInRoom(true);
       inRoomRef.current = true;
       setJoinError(null);
@@ -100,37 +96,20 @@ function App() {
   const handleJoin = useCallback(
     (rid: string, nick: string, gameType: GameType) => {
       if (!socket) return;
-      saveSession(rid, nick);
-      setRoomId(rid);
+      localStorage.setItem('flip_socket_nickname', nick);
       socket.emit('join_room', { roomId: rid, nickname: nick, sessionId: getSessionId(), gameType });
     },
     [socket],
   );
 
-  // Reset local choice whenever a new round starts (phase → 'choosing'),
-  // regardless of which player triggered play_again.
-  useEffect(() => {
-    if (roomState?.gamePhase === 'choosing') {
-      setMyLocalChoice(null);
-    }
-  }, [roomState?.gamePhase]);
-
-  const handleChoice = useCallback(
-    (choice: CoinSide) => {
-      socket?.emit('make_choice', { choice });
-      setMyLocalChoice(choice);
+  const handleCreate = useCallback(
+    (nick: string, gameType: GameType) => {
+      if (!socket) return;
+      localStorage.setItem('flip_socket_nickname', nick);
+      socket.emit('create_room', { nickname: nick, sessionId: getSessionId(), gameType });
     },
     [socket],
   );
-
-  const handleFlip = useCallback(() => {
-    socket?.emit('flip_request');
-  }, [socket]);
-
-  const handlePlayAgain = useCallback(() => {
-    socket?.emit('play_again');
-    setMyLocalChoice(null);
-  }, [socket]);
 
   const handleLeave = useCallback(() => {
     socket?.emit('leave_room');
@@ -138,7 +117,6 @@ function App() {
     setInRoom(false);
     inRoomRef.current = false;
     setRoomState(null);
-    setMyLocalChoice(null);
   }, [socket]);
 
   if (!isConnected) {
@@ -154,6 +132,7 @@ function App() {
     return (
       <JoinRoom
         onJoin={handleJoin}
+        onCreate={handleCreate}
         error={joinError}
         lobbyRooms={lobbyRooms}
         initialNickname={localStorage.getItem('flip_socket_nickname') ?? ''}
@@ -166,10 +145,7 @@ function App() {
       roomId={roomId}
       socketId={socket?.id ?? ''}
       roomState={roomState}
-      myLocalChoice={myLocalChoice}
-      onChoice={handleChoice}
-      onFlip={handleFlip}
-      onPlayAgain={handlePlayAgain}
+      emit={(event, payload) => socket?.emit(event, payload)}
       onLeave={handleLeave}
     />
   );
