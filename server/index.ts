@@ -36,7 +36,7 @@ const RECONNECT_GRACE_MS = 10_000; // 10 s to come back before being removed
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function generateRoomId(gameType: GameType): string {
-  const prefix: Record<GameType, string> = { coin_flip: 'FLIP' };
+  const prefix: Record<GameType, string> = { coin_flip: 'FLIP', tictactoe: 'TTT' };
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // excludes O, 0, 1, I to avoid confusion
   const rand = Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
   return `${prefix[gameType]}-${rand}`;
@@ -72,6 +72,7 @@ function getRoomState(room: Room): RoomState {
     gamePhase: room.gamePhase,
     gameType: room.gameType,
     flipResult: room.flipResult,
+    gameState: room.gameState,
     playerCount: room.players.length,
   };
 }
@@ -93,7 +94,7 @@ io.on('connection', (socket) => {
       }
 
       const cleanNickname = nickname.trim().slice(0, 20);
-      const validGameTypes: GameType[] = ['coin_flip'];
+      const validGameTypes: GameType[] = ['coin_flip', 'tictactoe'];
       const safeGameType: GameType = validGameTypes.includes(gameType) ? gameType : 'coin_flip';
 
       // Generate a collision-free room ID
@@ -161,10 +162,16 @@ io.on('connection', (socket) => {
       let room = rooms.get(cleanRoomId);
       if (!room) {
         // Only the first player (creator) sets the game type.
-        const validGameTypes: GameType[] = ['coin_flip'];
+        const validGameTypes: GameType[] = ['coin_flip', 'tictactoe'];
         const safeGameType: GameType = validGameTypes.includes(gameType) ? gameType : 'coin_flip';
         room = { id: cleanRoomId, players: [], gamePhase: 'waiting', gameType: safeGameType };
         rooms.set(cleanRoomId, room);
+      }
+
+      const handler = gameHandlers[room.gameType];
+      if (handler.maxPlayers && room.players.length >= handler.maxPlayers) {
+        socket.emit('join_error', { message: 'Room is full.' });
+        return;
       }
 
       socket.leave('lobby');
@@ -174,6 +181,7 @@ io.on('connection', (socket) => {
       room.players.push({ id: socket.id, sessionId, nickname: cleanNickname, score: 0 });
 
       if (room.gamePhase === 'waiting' && room.players.length >= 2) {
+        handler.onGameStart?.(room);
         room.gamePhase = 'choosing';
       } else if (room.gamePhase === 'ready') {
         // New player joined while everyone else was ready — they still need to choose.
@@ -247,8 +255,7 @@ io.on('connection', (socket) => {
       rooms.delete(roomId);
       console.log(`[-] Room ${roomId} deleted (empty)`);
     } else {
-      room.players.forEach((p) => { delete p.choice; });
-      room.flipResult = undefined;
+      gameHandlers[room.gameType].onGameStart?.(room);
       room.gamePhase = room.players.length >= 2 ? 'choosing' : 'waiting';
       io.to(roomId).emit('room_update', getRoomState(room));
       console.log(`[-] ${player.nickname} left ${roomId}`);
@@ -284,9 +291,8 @@ io.on('connection', (socket) => {
         rooms.delete(roomId);
         console.log(`[-] Room ${roomId} deleted (empty)`);
       } else {
-        room.players.forEach((p) => { delete p.choice; });
-        room.flipResult = undefined;
-        room.gamePhase = 'waiting';
+        gameHandlers[room.gameType].onGameStart?.(room);
+        room.gamePhase = room.players.length >= 2 ? 'choosing' : 'waiting';
         io.to(roomId).emit('room_update', getRoomState(room));
         console.log(`[-] ${player.nickname} timed out, removed from ${roomId}`);
       }

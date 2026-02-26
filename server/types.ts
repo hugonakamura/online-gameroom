@@ -15,4 +15,5 @@ export interface Room {
   gamePhase: GamePhase;
   gameType: GameType;
   flipResult?: CoinSide;
+  gameState?: unknown;
 }

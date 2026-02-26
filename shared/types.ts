@@ -5,7 +5,13 @@
 
 export type CoinSide = 'heads' | 'tails';
 export type GamePhase = 'waiting' | 'choosing' | 'ready' | 'result';
-export type GameType = 'coin_flip';
+export type GameType = 'coin_flip' | 'tictactoe';
+
+export interface TicTacToeState {
+  board: (1 | 2 | null)[];  // 9 cells; 1 = player index 0 (X), 2 = player index 1 (O)
+  currentTurn: 0 | 1;        // index into roomState.players
+  winner: 1 | 2 | 'draw' | null;
+}
 
 export interface PlayerState {
   id: string;
@@ -22,6 +28,7 @@ export interface RoomState {
   gamePhase: GamePhase;
   gameType: GameType;
   flipResult?: CoinSide;
+  gameState?: unknown;
   playerCount: number;
 }
 

@@ -3,6 +3,11 @@ import { Player, Room } from '../types';
 import type { GameHandler } from './index';
 
 export const coinFlipHandler: GameHandler = {
+  onGameStart(room: Room): void {
+    room.players.forEach((p) => { delete p.choice; });
+    room.flipResult = undefined;
+  },
+
   onGameInput(room: Room, player: Player, payload: unknown): void {
     const { choice } = payload as { choice: CoinSide };
     if (choice !== 'heads' && choice !== 'tails') return;
@@ -23,8 +28,7 @@ export const coinFlipHandler: GameHandler = {
   },
 
   onPlayAgain(room: Room): void {
-    room.players.forEach((p) => { delete p.choice; });
-    room.flipResult = undefined;
+    coinFlipHandler.onGameStart!(room);
     room.gamePhase = 'choosing';
   },
 };

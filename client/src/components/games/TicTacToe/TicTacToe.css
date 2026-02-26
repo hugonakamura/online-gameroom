@@ -1,0 +1,107 @@
+/* ── Tic-Tac-Toe ──────────────────────────────────────────────────────────── */
+
+.ttt-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.ttt-status {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.ttt-status.your-turn {
+  color: var(--accent);
+}
+
+.ttt-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 6px;
+  background: var(--border);
+  border-radius: var(--radius);
+}
+
+.ttt-cell {
+  width: 90px;
+  height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  border: none;
+  border-radius: 8px;
+  font-size: 2.4rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  line-height: 1;
+}
+
+.ttt-cell:not(:disabled):hover {
+  background: var(--surface-2);
+  transform: scale(1.04);
+}
+
+.ttt-cell:disabled {
+  cursor: not-allowed;
+}
+
+.ttt-cell.cell-x {
+  color: var(--accent);
+}
+
+.ttt-cell.cell-o {
+  color: var(--heads);
+}
+
+/* ── Actions ──────────────────────────────────────────────────────────────── */
+.ttt-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  max-width: 300px;
+}
+
+/* ── Result Banner ────────────────────────────────────────────────────────── */
+.result-banner {
+  width: 100%;
+  text-align: center;
+  padding: 14px 24px;
+  border-radius: var(--radius);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.result-banner.win {
+  background: rgba(64, 192, 96, 0.12);
+  border: 1px solid rgba(64, 192, 96, 0.35);
+  color: var(--success);
+}
+
+.result-banner.lose {
+  background: rgba(224, 80, 80, 0.08);
+  border: 1px solid rgba(224, 80, 80, 0.25);
+  color: var(--error);
+}
+
+.result-banner.draw {
+  background: rgba(108, 99, 255, 0.08);
+  border: 1px solid rgba(108, 99, 255, 0.25);
+  color: var(--text-muted);
+}
+
+@media (max-width: 480px) {
+  .ttt-cell {
+    width: 72px;
+    height: 72px;
+    font-size: 1.9rem;
+  }
+}

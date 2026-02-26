@@ -11,6 +11,7 @@ interface Props {
 
 const GAME_OPTIONS: { value: GameType; label: string }[] = [
   { value: 'coin_flip', label: '🪙 Coin Flip' },
+  { value: 'tictactoe', label: '✕ Tic-Tac-Toe' },
 ];
 
 export default function JoinRoom({ onJoin, onCreate, error, lobbyRooms, initialNickname }: Props) {
