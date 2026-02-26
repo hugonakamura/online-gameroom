@@ -2,7 +2,9 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
-import { CoinSide, GamePhase, GameType, RoomState, LobbyRoom } from '../shared/types';
+import { GameType, RoomState, LobbyRoom } from '../shared/types';
+import { Player, Room } from './types';
+import { gameHandlers } from './games/index';
 
 const app = express();
 const httpServer = createServer(app);
@@ -23,24 +25,6 @@ if (process.env.NODE_ENV === 'production') {
   app.get('*', (_req, res) => {
     res.sendFile(path.join(clientDist, 'index.html'));
   });
-}
-
-// ── Types ──────────────────────────────────────────────────────────────────────
-interface Player {
-  id: string;       // current socket.id — changes on reconnect
-  sessionId: string; // persistent client identity (stored in localStorage)
-  nickname: string;
-  score: number;
-  choice?: CoinSide;
-  disconnectTimer?: ReturnType<typeof setTimeout>;
-}
-
-interface Room {
-  id: string;
-  players: Player[];
-  gamePhase: GamePhase;
-  gameType: GameType;
-  flipResult?: CoinSide;
 }
 
 // ── State ──────────────────────────────────────────────────────────────────────
@@ -163,7 +147,7 @@ io.on('connection', (socket) => {
     },
   );
 
-  socket.on('make_choice', ({ choice }: { choice: CoinSide }) => {
+  socket.on('make_choice', (payload: unknown) => {
     const roomId = socketRooms.get(socket.id);
     if (!roomId) return;
 
@@ -172,13 +156,8 @@ io.on('connection', (socket) => {
 
     const player = room.players.find((p) => p.id === socket.id);
     if (!player) return;
-    if (choice !== 'heads' && choice !== 'tails') return;
 
-    player.choice = choice;
-
-    const allChosen = room.players.length >= 2 && room.players.every((p) => p.choice);
-    room.gamePhase = allChosen ? 'ready' : 'choosing';
-
+    gameHandlers[room.gameType].onMakeChoice(room, player, payload);
     io.to(roomId).emit('room_update', getRoomState(room));
   });
 
@@ -189,13 +168,8 @@ io.on('connection', (socket) => {
     const room = rooms.get(roomId);
     if (!room || room.gamePhase !== 'ready') return;
 
-    room.flipResult = Math.random() < 0.5 ? 'heads' : 'tails';
-    room.gamePhase = 'result';
-
-    room.players
-      .filter((p) => p.choice === room.flipResult)
-      .forEach((p) => { p.score += 1; });
-
+    const player = room.players.find((p) => p.id === socket.id)!;
+    gameHandlers[room.gameType].onPrimaryAction(room, player);
     io.to(roomId).emit('room_update', getRoomState(room));
     console.log(`[~] Room ${roomId}: flipped → ${room.flipResult}`);
   });
@@ -207,10 +181,7 @@ io.on('connection', (socket) => {
     const room = rooms.get(roomId);
     if (!room || room.gamePhase !== 'result') return;
 
-    room.players.forEach((p) => { delete p.choice; });
-    room.flipResult = undefined;
-    room.gamePhase = 'choosing';
-
+    gameHandlers[room.gameType].onPlayAgain(room);
     io.to(roomId).emit('room_update', getRoomState(room));
   });
 
