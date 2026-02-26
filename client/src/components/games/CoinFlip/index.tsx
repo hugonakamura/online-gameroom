@@ -55,7 +55,7 @@ export default function CoinFlip({ roomState, socketId, emit }: GameViewProps) {
     .join(' ');
 
   const handleChoice = (choice: CoinSide) => {
-    emit('make_choice', { choice });
+    emit('game_input', { choice });
     setMyLocalChoice(choice);
   };
 
@@ -89,7 +89,7 @@ export default function CoinFlip({ roomState, socketId, emit }: GameViewProps) {
         )}
 
         {roomState.gamePhase === 'ready' && (
-          <button className="btn btn-flip" onClick={() => emit('flip_request')}>
+          <button className="btn btn-flip" onClick={() => emit('game_action')}>
             Flip!
           </button>
         )}

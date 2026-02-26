@@ -186,7 +186,7 @@ io.on('connection', (socket) => {
     },
   );
 
-  socket.on('make_choice', (payload: unknown) => {
+  socket.on('game_input', (payload: unknown) => {
     const roomId = socketRooms.get(socket.id);
     if (!roomId) return;
 
@@ -196,11 +196,11 @@ io.on('connection', (socket) => {
     const player = room.players.find((p) => p.id === socket.id);
     if (!player) return;
 
-    gameHandlers[room.gameType].onMakeChoice(room, player, payload);
+    gameHandlers[room.gameType].onGameInput(room, player, payload);
     io.to(roomId).emit('room_update', getRoomState(room));
   });
 
-  socket.on('flip_request', () => {
+  socket.on('game_action', () => {
     const roomId = socketRooms.get(socket.id);
     if (!roomId) return;
 
@@ -208,9 +208,9 @@ io.on('connection', (socket) => {
     if (!room || room.gamePhase !== 'ready') return;
 
     const player = room.players.find((p) => p.id === socket.id)!;
-    gameHandlers[room.gameType].onPrimaryAction(room, player);
+    gameHandlers[room.gameType].onGameAction(room, player);
     io.to(roomId).emit('room_update', getRoomState(room));
-    console.log(`[~] Room ${roomId}: flipped → ${room.flipResult}`);
+    console.log(`[~] Room ${roomId}: game_action by ${player.nickname}`);
   });
 
   socket.on('play_again', () => {

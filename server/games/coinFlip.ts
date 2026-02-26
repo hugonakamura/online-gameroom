@@ -3,7 +3,7 @@ import { Player, Room } from '../types';
 import type { GameHandler } from './index';
 
 export const coinFlipHandler: GameHandler = {
-  onMakeChoice(room: Room, player: Player, payload: unknown): void {
+  onGameInput(room: Room, player: Player, payload: unknown): void {
     const { choice } = payload as { choice: CoinSide };
     if (choice !== 'heads' && choice !== 'tails') return;
 
@@ -13,7 +13,7 @@ export const coinFlipHandler: GameHandler = {
     room.gamePhase = allChosen ? 'ready' : 'choosing';
   },
 
-  onPrimaryAction(room: Room): void {
+  onGameAction(room: Room): void {
     room.flipResult = Math.random() < 0.5 ? 'heads' : 'tails';
     room.gamePhase = 'result';
 
