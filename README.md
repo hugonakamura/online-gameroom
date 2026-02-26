@@ -47,7 +47,7 @@ flip-socket/
 │   ├── types.ts                  # Server-internal Player and Room interfaces
 │   └── games/
 │       ├── index.ts              # GameHandler interface + registry (Record<GameType, GameHandler>)
-│       └── coinFlip.ts           # Coin flip: onMakeChoice, onPrimaryAction, onPlayAgain
+│       └── coinFlip.ts           # Coin flip: onGameInput, onGameAction, onPlayAgain
 │
 └── client/
     ├── src/
@@ -72,7 +72,7 @@ Both sides follow the same registry pattern. To add, say, a dice game:
 
 **Server** — implement `GameHandler` and register it:
 ```
-server/games/dice.ts        ← onMakeChoice, onPrimaryAction, onPlayAgain
+server/games/dice.ts        ← onGameInput, onGameAction, onPlayAgain
 server/games/index.ts       ← add:  dice: diceHandler
 ```
 
@@ -159,8 +159,8 @@ waiting ──► choosing ──► ready ──► result
 |---|---|---|
 | C→S | `create_room` | `{ nickname, sessionId, gameType }` |
 | C→S | `join_room` | `{ roomId, nickname, sessionId, gameType }` |
-| C→S | `make_choice` | `{ choice: 'heads' \| 'tails' }` |
-| C→S | `flip_request` | — |
+| C→S | `game_input` | game-specific payload (e.g. `{ choice: 'heads' \| 'tails' }`) |
+| C→S | `game_action` | — |
 | C→S | `play_again` | — |
 | C→S | `leave_room` | — |
 | S→C | `room_update` | `RoomState` (includes `roomId`) |
