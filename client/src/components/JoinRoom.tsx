@@ -89,7 +89,10 @@ export default function JoinRoom({ onJoin, onCreate, error, lobbyRooms, initialN
             {lobbyRooms.map((room) => (
               <div key={room.id} className="lobby-room-item">
                 <div className="lobby-room-info">
-                  <span className="lobby-room-id">{room.id}</span>
+                  <span className="lobby-room-id">
+                    {room.id}
+                    <span className="lobby-room-game">{GAME_OPTIONS.find((o) => o.value === room.gameType)?.label}</span>
+                  </span>
                   <span className="lobby-room-host">
                     {room.playerCount} {room.playerCount === 1 ? 'player' : 'players'} ·{' '}
                     {room.gamePhase === 'waiting' ? `${room.host} is waiting` : 'In progress'}

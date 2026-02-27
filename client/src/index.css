@@ -241,6 +241,21 @@ body {
   font-size: 0.9rem;
   font-weight: 700;
   color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lobby-room-game {
+  font-family: 'Segoe UI', system-ui, sans-serif, 'Noto Emoji';
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1px 7px;
+  letter-spacing: 0.02em;
 }
 
 .lobby-room-host {
