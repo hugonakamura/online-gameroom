@@ -72,6 +72,15 @@
   }
 }
 
+/* ── Actions Section ──────────────────────────────────────────────────────── */
+.actions-section {
+  min-height: 180px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+}
+
 /* ── Choice Buttons ───────────────────────────────────────────────────────── */
 .choice-buttons {
   display: flex;
