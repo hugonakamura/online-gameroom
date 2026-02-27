@@ -19,7 +19,7 @@
 }
 
 body {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif, 'Noto Emoji';
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
