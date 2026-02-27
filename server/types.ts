@@ -12,6 +12,7 @@ export interface Player {
 export interface Room {
   id: string;
   players: Player[];
+  spectators: Player[];
   gamePhase: GamePhase;
   gameType: GameType;
   gameState?: unknown;

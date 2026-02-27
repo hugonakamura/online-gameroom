@@ -53,9 +53,16 @@ export interface PlayerState {
   score: number;
 }
 
+export interface SpectatorState {
+  id: string;
+  nickname: string;
+}
+
 export interface RoomState {
   roomId: string;
   players: PlayerState[];
+  spectators: SpectatorState[];
+  spectatorCount: number;
   gamePhase: GamePhase;
   gameType: GameType;
   gameState?: unknown;
@@ -67,5 +74,7 @@ export interface LobbyRoom {
   host: string; // nickname of the first player
   gameType: GameType;
   playerCount: number;
+  maxPlayers?: number; // undefined = no cap (e.g. Coin Flip)
+  spectatorCount: number;
   gamePhase: GamePhase;
 }

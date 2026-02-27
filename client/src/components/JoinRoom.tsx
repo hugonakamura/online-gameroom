@@ -4,6 +4,7 @@ import { LobbyRoom, GameType } from '../types';
 interface Props {
   onJoin: (roomId: string, nickname: string, gameType: GameType) => void;
   onCreate: (nickname: string, gameType: GameType) => void;
+  onSpectate: (roomId: string, nickname: string) => void;
   error: string | null;
   lobbyRooms: LobbyRoom[];
   initialNickname: string;
@@ -16,7 +17,7 @@ const GAME_OPTIONS: { value: GameType; label: string }[] = [
   { value: 'highlow',   label: '🃏 High / Low' },
 ];
 
-export default function JoinRoom({ onJoin, onCreate, error, lobbyRooms, initialNickname }: Props) {
+export default function JoinRoom({ onJoin, onCreate, onSpectate, error, lobbyRooms, initialNickname }: Props) {
   const [nickname, setNickname] = useState(initialNickname);
   const [gameType, setGameType] = useState<GameType>('coin_flip');
   const nicknameRef = useRef<HTMLInputElement>(null);
@@ -30,6 +31,14 @@ export default function JoinRoom({ onJoin, onCreate, error, lobbyRooms, initialN
   const handleQuickJoin = (room: LobbyRoom) => {
     if (nickname.trim()) {
       onJoin(room.id, nickname.trim(), room.gameType);
+    } else {
+      nicknameRef.current?.focus();
+    }
+  };
+
+  const handleQuickSpectate = (room: LobbyRoom) => {
+    if (nickname.trim()) {
+      onSpectate(room.id, nickname.trim());
     } else {
       nicknameRef.current?.focus();
     }
@@ -93,19 +102,34 @@ export default function JoinRoom({ onJoin, onCreate, error, lobbyRooms, initialN
                   <span className="lobby-room-id">
                     {room.id}
                     <span className="lobby-room-game">{GAME_OPTIONS.find((o) => o.value === room.gameType)?.label}</span>
+                    {room.spectatorCount > 0 && (
+                      <span className="lobby-spectator-count">👁 {room.spectatorCount}</span>
+                    )}
                   </span>
                   <span className="lobby-room-host">
                     {room.playerCount} {room.playerCount === 1 ? 'player' : 'players'} ·{' '}
                     {room.gamePhase === 'waiting' ? `${room.host} is waiting` : 'In progress'}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  className="btn-join-lobby"
-                  onClick={() => handleQuickJoin(room)}
-                >
-                  Join
-                </button>
+                <div className="lobby-room-actions">
+                  {room.maxPlayers === undefined || room.playerCount < room.maxPlayers ? (
+                    <button
+                      type="button"
+                      className="btn-join-lobby"
+                      onClick={() => handleQuickJoin(room)}
+                    >
+                      Join
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn-spectate-lobby"
+                      onClick={() => handleQuickSpectate(room)}
+                    >
+                      Spectate
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>

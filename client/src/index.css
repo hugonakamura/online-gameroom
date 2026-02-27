@@ -325,11 +325,16 @@ body {
 
 .game-header {
   display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.game-header-row {
+  display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 14px 24px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
 }
 
 .room-info {
@@ -495,6 +500,115 @@ body {
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+
+/* ── Lobby: spectator count badge ────────────────────────────────────────── */
+.lobby-spectator-count {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-left: 6px;
+}
+
+/* ── Lobby: room action buttons ──────────────────────────────────────────── */
+.lobby-room-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.btn-spectate-lobby {
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-spectate-lobby:hover {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+
+/* ── Header: action button group ─────────────────────────────────────────── */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-spectate {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-spectate:hover {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+
+.btn-sit-in {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(108, 99, 255, 0.4);
+  background: rgba(108, 99, 255, 0.08);
+  color: var(--accent);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-sit-in:hover {
+  background: rgba(108, 99, 255, 0.18);
+  border-color: var(--accent);
+}
+
+/* ── Player count: spectator sub-count ───────────────────────────────────── */
+.spectator-count {
+  color: var(--text-muted);
+  font-size: 0.8em;
+}
+
+/* ── Spectators strip (header row) ──────────────────────────────────────── */
+.spectators-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 24px;
+  border-top: 1px solid var(--border);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.spectators-icon {
+  margin-right: 2px;
+}
+
+.spectators-label {
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.spectator-name {
+  color: var(--text-muted);
+}
+
+.spectator-name.spectator-me {
+  color: var(--accent);
 }
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */

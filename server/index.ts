@@ -50,6 +50,8 @@ function getLobbyRooms(): LobbyRoom[] {
       host: r.players[0].nickname,
       gameType: r.gameType,
       playerCount: r.players.length,
+      maxPlayers: gameHandlers[r.gameType].maxPlayers,
+      spectatorCount: r.spectators.length,
       gamePhase: r.gamePhase,
     }));
 }
@@ -72,6 +74,8 @@ function getRoomState(room: Room, playerId?: string): RoomState {
       hasChosen: !!p.hasActed,
       score: p.score,
     })),
+    spectators: room.spectators.map((s) => ({ id: s.id, nickname: s.nickname })),
+    spectatorCount: room.spectators.length,
     gamePhase: room.gamePhase,
     gameType: room.gameType,
     gameState,
@@ -86,8 +90,13 @@ function broadcastRoomUpdate(room: Room): void {
     room.players.forEach((p) => {
       io.to(p.id).emit('room_update', getRoomState(room, p.id));
     });
+    // Spectators get the same sanitized view as a non-participant (all choices hidden)
+    const spectatorState = getRoomState(room, '');
+    room.spectators.forEach((s) => io.to(s.id).emit('room_update', spectatorState));
   } else {
-    io.to(room.id).emit('room_update', getRoomState(room));
+    const state = getRoomState(room);
+    room.players.forEach((p) => io.to(p.id).emit('room_update', state));
+    room.spectators.forEach((s) => io.to(s.id).emit('room_update', state));
   }
 }
 
@@ -115,7 +124,7 @@ io.on('connection', (socket) => {
       let roomId = generateRoomId(safeGameType);
       while (rooms.has(roomId)) roomId = generateRoomId(safeGameType);
 
-      const room: Room = { id: roomId, players: [], gamePhase: 'waiting', gameType: safeGameType };
+      const room: Room = { id: roomId, players: [], spectators: [], gamePhase: 'waiting', gameType: safeGameType };
       rooms.set(roomId, room);
 
       socket.leave('lobby');
@@ -132,7 +141,7 @@ io.on('connection', (socket) => {
 
   socket.on(
     'join_room',
-    ({ roomId, nickname, sessionId, gameType }: { roomId: string; nickname: string; sessionId: string; gameType: GameType }) => {
+    ({ roomId, nickname, sessionId, gameType, role }: { roomId: string; nickname: string; sessionId: string; gameType: GameType; role?: 'player' | 'spectator' }) => {
       if (!roomId?.trim() || !nickname?.trim()) {
         socket.emit('join_error', { message: 'Room ID and nickname are required.' });
         return;
@@ -145,6 +154,7 @@ io.on('connection', (socket) => {
       if (existingRoomId) {
         const existingRoom = rooms.get(existingRoomId);
         if (existingRoom) {
+          // Check active players first
           const existingPlayer = existingRoom.players.find((p) => p.sessionId === sessionId);
           if (existingPlayer) {
             // Cancel pending removal timer
@@ -164,6 +174,22 @@ io.on('connection', (socket) => {
             console.log(`[~] ${existingPlayer.nickname} reconnected to ${existingRoomId}`);
             return;
           }
+
+          // Check spectators
+          const existingSpectator = existingRoom.spectators.find((s) => s.sessionId === sessionId);
+          if (existingSpectator) {
+            socketRooms.delete(existingSpectator.id);
+            existingSpectator.id = socket.id;
+            socketRooms.set(socket.id, existingRoomId);
+            socket.leave('lobby');
+            const handler = gameHandlers[existingRoom.gameType];
+            const spectatorState = handler.sanitizeGameState
+              ? getRoomState(existingRoom, '')
+              : getRoomState(existingRoom);
+            socket.emit('room_update', spectatorState);
+            console.log(`[~] ${existingSpectator.nickname} reconnected as spectator to ${existingRoomId}`);
+            return;
+          }
         }
         // Room is gone — let the session fall through to a normal join
         sessions.delete(sessionId);
@@ -175,13 +201,36 @@ io.on('connection', (socket) => {
 
       let room = rooms.get(cleanRoomId);
       if (!room) {
+        if (role === 'spectator') {
+          socket.emit('join_error', { message: 'Room not found.' });
+          return;
+        }
         // Only the first player (creator) sets the game type.
         const validGameTypes = Object.keys(gameHandlers) as GameType[];
         const safeGameType: GameType = validGameTypes.includes(gameType) ? gameType : 'coin_flip';
-        room = { id: cleanRoomId, players: [], gamePhase: 'waiting', gameType: safeGameType };
+        room = { id: cleanRoomId, players: [], spectators: [], gamePhase: 'waiting', gameType: safeGameType };
         rooms.set(cleanRoomId, room);
       }
 
+      // ── Spectator join ─────────────────────────────────────────────────────
+      if (role === 'spectator') {
+        socketRooms.set(socket.id, cleanRoomId);
+        sessions.set(sessionId, cleanRoomId);
+        room.spectators.push({ id: socket.id, sessionId, nickname: cleanNickname, score: 0 });
+        socket.leave('lobby');
+        const handler = gameHandlers[room.gameType];
+        const spectatorState = handler.sanitizeGameState
+          ? getRoomState(room, '')
+          : getRoomState(room);
+        socket.emit('room_update', spectatorState);
+        // Notify all players/spectators that spectator count changed
+        broadcastRoomUpdate(room);
+        broadcastLobby();
+        console.log(`[👁] ${cleanNickname} joined ${cleanRoomId} as spectator`);
+        return;
+      }
+
+      // ── Player join ────────────────────────────────────────────────────────
       const handler = gameHandlers[room.gameType];
       if (handler.maxPlayers && room.players.length >= handler.maxPlayers) {
         socket.emit('join_error', { message: 'Room is full.' });
@@ -204,7 +253,7 @@ io.on('connection', (socket) => {
 
       broadcastRoomUpdate(room);
       broadcastLobby();
-      console.log(`[+] ${cleanNickname} joined ${cleanRoomId} (${room.players.length}/2)`);
+      console.log(`[+] ${cleanNickname} joined ${cleanRoomId} (${room.players.length}/${handler.maxPlayers ?? '∞'})`);
     },
   );
 
@@ -248,6 +297,78 @@ io.on('connection', (socket) => {
     broadcastRoomUpdate(room);
   });
 
+  socket.on('become_spectator', () => {
+    const roomId = socketRooms.get(socket.id);
+    if (!roomId) return;
+
+    const room = rooms.get(roomId);
+    if (!room) return;
+
+    const player = room.players.find((p) => p.id === socket.id);
+    if (!player) return;
+
+    if (player.disconnectTimer) clearTimeout(player.disconnectTimer);
+
+    // Remove from players (same teardown as a player leaving)
+    room.players = room.players.filter((p) => p.id !== socket.id);
+
+    if (room.players.length === 0 && room.spectators.length === 0) {
+      // Nobody left at all — just delete the room
+      rooms.delete(roomId);
+      broadcastLobby();
+      console.log(`[-] Room ${roomId} deleted (empty after become_spectator)`);
+      return;
+    }
+
+    // Add to spectators (keep same socket, sessionId, nickname; reset score context)
+    room.spectators.push({ id: socket.id, sessionId: player.sessionId, nickname: player.nickname, score: 0 });
+
+    // Reset the game for remaining players (same as a player leaving)
+    if (room.players.length > 0) {
+      gameHandlers[room.gameType].onGameStart?.(room);
+      room.gamePhase = room.players.length >= 2 ? 'choosing' : 'waiting';
+    } else {
+      room.gamePhase = 'waiting';
+    }
+
+    broadcastRoomUpdate(room);
+    broadcastLobby();
+    console.log(`[👁] ${player.nickname} became a spectator in ${roomId}`);
+  });
+
+  socket.on('sit_in', () => {
+    const roomId = socketRooms.get(socket.id);
+    if (!roomId) return;
+
+    const room = rooms.get(roomId);
+    if (!room) return;
+
+    const spectator = room.spectators.find((s) => s.id === socket.id);
+    if (!spectator) return;
+
+    const handler = gameHandlers[room.gameType];
+    if (handler.maxPlayers && room.players.length >= handler.maxPlayers) {
+      socket.emit('join_error', { message: 'Room is full.' });
+      return;
+    }
+
+    // Remove from spectators, add to players
+    room.spectators = room.spectators.filter((s) => s.id !== socket.id);
+    room.players.push({ id: socket.id, sessionId: spectator.sessionId, nickname: spectator.nickname, score: spectator.score });
+    socket.join(roomId); // join the Socket.io room for player broadcasts
+
+    if (room.gamePhase === 'waiting' && room.players.length >= 2) {
+      handler.onGameStart?.(room);
+      room.gamePhase = 'choosing';
+    } else if (room.gamePhase === 'ready') {
+      room.gamePhase = 'choosing';
+    }
+
+    broadcastRoomUpdate(room);
+    broadcastLobby();
+    console.log(`[+] ${spectator.nickname} sat in as player in ${roomId}`);
+  });
+
   socket.on('leave_room', () => {
     const roomId = socketRooms.get(socket.id);
     if (!roomId) return;
@@ -256,6 +377,20 @@ io.on('connection', (socket) => {
     const room = rooms.get(roomId);
     if (!room) return;
 
+    // ── Spectator leaving ──────────────────────────────────────────────────
+    const spectatorIdx = room.spectators.findIndex((s) => s.id === socket.id);
+    if (spectatorIdx !== -1) {
+      const spectator = room.spectators[spectatorIdx];
+      room.spectators = room.spectators.filter((s) => s.id !== socket.id);
+      sessions.delete(spectator.sessionId);
+      socket.join('lobby');
+      if (room.players.length >= 1) broadcastRoomUpdate(room);
+      broadcastLobby();
+      console.log(`[-] Spectator ${spectator.nickname} left ${roomId}`);
+      return;
+    }
+
+    // ── Player leaving ─────────────────────────────────────────────────────
     const player = room.players.find((p) => p.id === socket.id);
     if (!player) return;
 
@@ -267,7 +402,7 @@ io.on('connection', (socket) => {
 
     socket.join('lobby');
 
-    if (room.players.length === 0) {
+    if (room.players.length === 0 && room.spectators.length === 0) {
       rooms.delete(roomId);
       console.log(`[-] Room ${roomId} deleted (empty)`);
     } else {
@@ -288,6 +423,20 @@ io.on('connection', (socket) => {
     const room = rooms.get(roomId);
     if (!room) return;
 
+    // ── Spectator disconnecting ────────────────────────────────────────────
+    const spectatorIdx = room.spectators.findIndex((s) => s.id === socket.id);
+    if (spectatorIdx !== -1) {
+      const spectator = room.spectators[spectatorIdx];
+      room.spectators = room.spectators.filter((s) => s.id !== socket.id);
+      sessions.delete(spectator.sessionId);
+      if (room.players.length >= 1) broadcastRoomUpdate(room);
+      if (room.players.length === 0 && room.spectators.length === 0) rooms.delete(roomId);
+      broadcastLobby();
+      console.log(`[!] Spectator ${spectator.nickname} disconnected from ${roomId}`);
+      return;
+    }
+
+    // ── Player disconnecting ───────────────────────────────────────────────
     const player = room.players.find((p) => p.id === socket.id);
     if (!player) return;
 
@@ -303,7 +452,7 @@ io.on('connection', (socket) => {
       room.players = room.players.filter((p) => p.sessionId !== player.sessionId);
       sessions.delete(player.sessionId);
 
-      if (room.players.length === 0) {
+      if (room.players.length === 0 && room.spectators.length === 0) {
         rooms.delete(roomId);
         console.log(`[-] Room ${roomId} deleted (empty)`);
       } else {

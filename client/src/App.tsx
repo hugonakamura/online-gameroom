@@ -24,6 +24,7 @@ function getSessionId(): string {
 
 function clearSession() {
   localStorage.removeItem('flip_socket_room');
+  localStorage.removeItem('flip_socket_role');
   // Nickname is intentionally kept so the user doesn't have to re-type it.
 }
 
@@ -67,9 +68,10 @@ function App() {
       if (!inRoomRef.current) {
         const savedRoom     = localStorage.getItem('flip_socket_room');
         const savedNickname = localStorage.getItem('flip_socket_nickname');
+        const savedRole     = localStorage.getItem('flip_socket_role') as 'spectator' | null;
         if (savedRoom && savedNickname) {
           setRoomId(savedRoom);
-          s.emit('join_room', { roomId: savedRoom, nickname: savedNickname, sessionId });
+          s.emit('join_room', { roomId: savedRoom, nickname: savedNickname, sessionId, ...(savedRole ? { role: savedRole } : {}) });
         }
       }
     });
@@ -143,6 +145,16 @@ function App() {
     [socket],
   );
 
+  const handleSpectate = useCallback(
+    (rid: string, nick: string) => {
+      if (!socket) return;
+      localStorage.setItem('flip_socket_nickname', nick);
+      localStorage.setItem('flip_socket_role', 'spectator');
+      socket.emit('join_room', { roomId: rid, nickname: nick, sessionId: getSessionId(), role: 'spectator' });
+    },
+    [socket],
+  );
+
   const handleLeave = useCallback(() => {
     socket?.emit('leave_room');
     clearSession();
@@ -167,6 +179,7 @@ function App() {
         <JoinRoom
           onJoin={handleJoin}
           onCreate={handleCreate}
+          onSpectate={handleSpectate}
           error={joinError}
           lobbyRooms={lobbyRooms}
           initialNickname={localStorage.getItem('flip_socket_nickname') ?? ''}

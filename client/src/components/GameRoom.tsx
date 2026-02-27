@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { RoomState, GamePhase, PlayerState } from '../types';
+import { RoomState, GamePhase, PlayerState, SpectatorState } from '../types';
 import { gameViews } from './games';
 
 interface Props {
@@ -47,23 +47,54 @@ function PlayerCard({
   );
 }
 
+function SpectatorStrip({ spectators, socketId }: { spectators: SpectatorState[]; socketId: string }) {
+  if (spectators.length === 0) return null;
+  return (
+    <div className="spectators-strip">
+      <span className="spectators-icon">👁</span>
+      <span className="spectators-label">Watching:</span>
+      {spectators.map((s, i) => (
+        <span key={s.id} className={`spectator-name${s.id === socketId ? ' spectator-me' : ''}`}>
+          {s.nickname}{s.id === socketId ? ' (you)' : ''}{i < spectators.length - 1 ? ',' : ''}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export default function GameRoom({ roomId, socketId, roomState, emit, onLeave }: Props) {
   const GameView = gameViews[roomState.gameType];
+  const isSpectator = roomState.spectators.some((s) => s.id === socketId);
 
   return (
     <div className="game-screen">
       {/* Header */}
       <header className="game-header">
-        <div className="room-info">
-          <span className="room-label">Room</span>
-          <span className="room-id">{roomId}</span>
+        <div className="game-header-row">
+          <div className="room-info">
+            <span className="room-label">Room</span>
+            <span className="room-id">{roomId}</span>
+          </div>
+          <div className={`player-count${roomState.playerCount >= 2 ? ' full' : ''}`}>
+            {roomState.playerCount} {roomState.playerCount === 1 ? 'player' : 'players'}
+          </div>
+          <div className="header-actions">
+            {!isSpectator && (
+              <button className="btn-spectate" onClick={() => emit('become_spectator')}>
+                Spectate
+              </button>
+            )}
+            {isSpectator && (
+              <button className="btn-sit-in" onClick={() => emit('sit_in')}>
+                Sit In
+              </button>
+            )}
+            <button className="btn-leave" onClick={onLeave}>Leave</button>
+          </div>
         </div>
-        <div className={`player-count${roomState.playerCount >= 2 ? ' full' : ''}`}>
-          {roomState.playerCount} {roomState.playerCount === 1 ? 'player' : 'players'}
-        </div>
-        <button className="btn-leave" onClick={onLeave}>Leave</button>
+        <SpectatorStrip spectators={roomState.spectators} socketId={socketId} />
       </header>
 
       <div className="game-content">
@@ -79,9 +110,13 @@ export default function GameRoom({ roomId, socketId, roomState, emit, onLeave }:
           ))}
         </div>
 
-        {/* Game-specific UI — resolved from the registry by game type */}
+        {/* Game-specific UI — no-op emit for spectators so they can't interact */}
         <Suspense fallback={<div className="loading-screen"><div className="spinner" /></div>}>
-          <GameView roomState={roomState} socketId={socketId} emit={emit} />
+          <GameView
+            roomState={roomState}
+            socketId={socketId}
+            emit={isSpectator ? () => {} : emit}
+          />
         </Suspense>
       </div>
     </div>
