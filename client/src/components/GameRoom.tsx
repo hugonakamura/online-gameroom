@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { RoomState, GamePhase, PlayerState } from '../types';
 import { gameViews } from './games';
 
@@ -79,7 +80,9 @@ export default function GameRoom({ roomId, socketId, roomState, emit, onLeave }:
         </div>
 
         {/* Game-specific UI — resolved from the registry by game type */}
-        <GameView roomState={roomState} socketId={socketId} emit={emit} />
+        <Suspense fallback={<div className="loading-screen"><div className="spinner" /></div>}>
+          <GameView roomState={roomState} socketId={socketId} emit={emit} />
+        </Suspense>
       </div>
     </div>
   );
