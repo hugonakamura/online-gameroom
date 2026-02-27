@@ -13,6 +13,7 @@ const GAME_OPTIONS: { value: GameType; label: string }[] = [
   { value: 'coin_flip', label: '🪙 Coin Flip' },
   { value: 'tictactoe', label: '✕ Tic-Tac-Toe' },
   { value: 'rps',       label: '✊ Rock Paper Scissors' },
+  { value: 'highlow',   label: '🃏 High / Low' },
 ];
 
 export default function JoinRoom({ onJoin, onCreate, error, lobbyRooms, initialNickname }: Props) {

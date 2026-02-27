@@ -1,0 +1,195 @@
+/* ── High / Low ───────────────────────────────────────────────────────────── */
+
+.hl-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.hl-status {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ── Playing Card ─────────────────────────────────────────────────────────── */
+
+.hl-card {
+  position: relative;
+  width: 90px;
+  height: 130px;
+  background: #f8f8ff;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.hl-card.red  { color: #c0392b; }
+.hl-card.black { color: #1a1a2e; }
+
+.hl-card-corner {
+  position: absolute;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.hl-card-corner.top    { top: 6px;    left: 8px; }
+.hl-card-corner.bottom { bottom: 6px; right: 8px; transform: rotate(180deg); }
+
+.hl-card-suit {
+  font-size: 2.4rem;
+  line-height: 1;
+}
+
+.hl-card-label {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ── Cards remaining ──────────────────────────────────────────────────────── */
+
+.hl-cards-left {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* ── Multiplier badge ─────────────────────────────────────────────────────── */
+
+.hl-multiplier {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #f0c040;
+  background: rgba(240, 192, 64, 0.1);
+  border: 1px solid rgba(240, 192, 64, 0.35);
+  border-radius: 20px;
+  padding: 4px 14px;
+  letter-spacing: 0.02em;
+}
+
+/* ── Choice buttons ───────────────────────────────────────────────────────── */
+
+.hl-choices {
+  display: flex;
+  gap: 12px;
+}
+
+.hl-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100px;
+  padding: 14px 8px;
+  background: var(--surface);
+  border: 2px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.hl-btn-arrow {
+  font-size: 1.8rem;
+  line-height: 1;
+  color: var(--text);
+}
+
+.hl-btn-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.hl-btn:not(:disabled):hover {
+  background: var(--surface-2);
+  transform: scale(1.06);
+}
+
+.hl-btn.selected {
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
+
+.hl-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.hl-btn.selected:disabled {
+  opacity: 1;
+}
+
+/* ── Result reveal ────────────────────────────────────────────────────────── */
+
+.hl-reveal {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.hl-reveal-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px; /* extra space for the .hl-card-label above */
+  padding-top: 24px;
+}
+
+.hl-reveal-guess {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.hl-reveal-arrow {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  align-self: center;
+  margin-top: 24px;
+}
+
+.hl-reveal-arrow.higher { color: var(--success); }
+.hl-reveal-arrow.lower  { color: var(--error);   }
+.hl-reveal-arrow.equal  { color: var(--accent);  }
+
+/* ── Result actions ───────────────────────────────────────────────────────── */
+
+.hl-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  max-width: 320px;
+}
+
+@media (max-width: 480px) {
+  .hl-card {
+    width: 76px;
+    height: 110px;
+  }
+
+  .hl-card-suit {
+    font-size: 1.9rem;
+  }
+
+  .hl-btn {
+    width: 84px;
+  }
+}

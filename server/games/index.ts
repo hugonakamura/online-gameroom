@@ -3,6 +3,7 @@ import { Player, Room } from '../types';
 import { coinFlipHandler } from './coinFlip';
 import { ticTacToeHandler } from './ticTacToe';
 import { rpsHandler } from './rps';
+import { highLowHandler } from './highLow';
 
 export interface GameHandler {
   /** Prefix used when auto-generating room IDs (e.g. 'FLIP' → 'FLIP-A3K9M') */
@@ -30,4 +31,5 @@ export const gameHandlers: Record<GameType, GameHandler> = {
   coin_flip: coinFlipHandler,
   tictactoe: ticTacToeHandler,
   rps: rpsHandler,
+  highlow: highLowHandler,
 };
