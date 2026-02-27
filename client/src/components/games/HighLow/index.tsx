@@ -63,7 +63,6 @@ export default function HighLow({ roomState, socketId, emit }: GameViewProps) {
   const myIndex = roomState.players.findIndex((p) => p.id === socketId);
 
   const myChoice = state?.choices[myIndex] ?? null;
-  const oppChoice = state?.choices[myIndex === 0 ? 1 : 0] ?? null;
 
   const outcome = state?.outcome ?? null;
   const isPush = outcome === 'equal';
@@ -85,9 +84,20 @@ export default function HighLow({ roomState, socketId, emit }: GameViewProps) {
   };
 
   const statusMessage = () => {
-    if (roomState.gamePhase === 'waiting') return 'Waiting for opponent to join…';
-    if (myLocalChoice) return 'Waiting for opponent…';
-    if (oppChoice === 'hidden') return 'Opponent is ready — make your move!';
+    if (roomState.gamePhase === 'waiting') return 'Waiting for players to join…';
+
+    const submitted = state?.choices.filter(c => c !== null).length ?? 0;
+    const waiting = roomState.players.length - submitted;
+
+    if (myLocalChoice) {
+      if (waiting > 0) return `Waiting for ${waiting} player${waiting !== 1 ? 's' : ''}…`;
+      return 'Revealing…';
+    }
+
+    if (submitted > 0) {
+      return `${submitted} player${submitted !== 1 ? 's' : ''} locked in — make your move!`;
+    }
+
     return 'Choose: Higher or Lower?';
   };
 
@@ -106,9 +116,7 @@ export default function HighLow({ roomState, socketId, emit }: GameViewProps) {
     if (isPush) return `Push — next round worth ${state!.multiplier}×!`;
     const myActualChoice = state!.choices[myIndex];
     const iWon = myActualChoice === outcome;
-    const oppActualChoice = state!.choices[myIndex === 0 ? 1 : 0];
-    const oppWon = oppActualChoice === outcome;
-    if (iWon && oppWon) return `🤝 Both correct! (+${ptStr} each)`;
+
     if (iWon) return `🎉 You Win! (+${ptStr})`;
     return '😔 Better luck next time!';
   };
@@ -116,7 +124,7 @@ export default function HighLow({ roomState, socketId, emit }: GameViewProps) {
   const readyLabel = () => {
     if (!myReady) return 'Ready ✓';
     const waiting = roomState.players.length - (state?.readyCount ?? 0);
-    return waiting > 0 ? 'Waiting for opponent…' : 'Ready ✓';
+    return waiting > 0 ? `Waiting for ${waiting} player${waiting !== 1 ? 's' : ''}…` : 'Ready ✓';
   };
 
   return (

@@ -28,7 +28,7 @@ function shuffle<T>(arr: T[]): T[] {
 
 export const highLowHandler: GameHandler = {
   roomIdPrefix: 'HL',
-  maxPlayers: 2,
+  maxPlayers: 8,
 
   onGameStart(room: Room): void {
     room.players.forEach((p) => { p.hasActed = false; });
