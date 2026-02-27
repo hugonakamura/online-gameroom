@@ -7,6 +7,12 @@ export type CoinSide = 'heads' | 'tails';
 export type GamePhase = 'waiting' | 'choosing' | 'ready' | 'result';
 export type GameType = 'coin_flip' | 'tictactoe';
 
+export interface CoinFlipState {
+  /** Indexed by player position in room.players (same order as RoomState.players) */
+  choices: (CoinSide | null)[];
+  flipResult?: CoinSide;
+}
+
 export interface TicTacToeState {
   board: (1 | 2 | null)[];  // 9 cells; 1 = player index 0 (X), 2 = player index 1 (O)
   currentTurn: 0 | 1;        // index into roomState.players
@@ -18,8 +24,6 @@ export interface PlayerState {
   nickname: string;
   hasChosen: boolean;
   score: number;
-  /** Only populated in the 'result' phase; hidden before then to prevent cheating */
-  choice?: CoinSide;
 }
 
 export interface RoomState {
@@ -27,7 +31,6 @@ export interface RoomState {
   players: PlayerState[];
   gamePhase: GamePhase;
   gameType: GameType;
-  flipResult?: CoinSide;
   gameState?: unknown;
   playerCount: number;
 }

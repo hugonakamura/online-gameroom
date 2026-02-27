@@ -22,10 +22,7 @@ function PlayerCard({
 }) {
   const statusText = () => {
     if (gamePhase === 'waiting') return 'In room';
-    if (gamePhase === 'result') {
-      const c = player.choice;
-      return c ? c.charAt(0).toUpperCase() + c.slice(1) : '—';
-    }
+    if (gamePhase === 'result') return player.hasChosen ? '✓ Done' : '—';
     return player.hasChosen ? '✓ Ready' : 'Choosing…';
   };
 

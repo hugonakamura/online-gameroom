@@ -36,10 +36,10 @@ const RECONNECT_GRACE_MS = 10_000; // 10 s to come back before being removed
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function generateRoomId(gameType: GameType): string {
-  const prefix: Record<GameType, string> = { coin_flip: 'FLIP', tictactoe: 'TTT' };
+  const prefix = gameHandlers[gameType].roomIdPrefix;
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // excludes O, 0, 1, I to avoid confusion
   const rand = Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-  return `${prefix[gameType]}-${rand}`;
+  return `${prefix}-${rand}`;
 }
 
 function getLobbyRooms(): LobbyRoom[] {
@@ -64,14 +64,11 @@ function getRoomState(room: Room): RoomState {
     players: room.players.map((p) => ({
       id: p.id,
       nickname: p.nickname,
-      hasChosen: !!p.choice,
+      hasChosen: !!p.hasActed,
       score: p.score,
-      // Choices are hidden until result to prevent cheating
-      choice: room.gamePhase === 'result' ? p.choice : undefined,
     })),
     gamePhase: room.gamePhase,
     gameType: room.gameType,
-    flipResult: room.flipResult,
     gameState: room.gameState,
     playerCount: room.players.length,
   };
@@ -94,7 +91,7 @@ io.on('connection', (socket) => {
       }
 
       const cleanNickname = nickname.trim().slice(0, 20);
-      const validGameTypes: GameType[] = ['coin_flip', 'tictactoe'];
+      const validGameTypes = Object.keys(gameHandlers) as GameType[];
       const safeGameType: GameType = validGameTypes.includes(gameType) ? gameType : 'coin_flip';
 
       // Generate a collision-free room ID
@@ -162,7 +159,7 @@ io.on('connection', (socket) => {
       let room = rooms.get(cleanRoomId);
       if (!room) {
         // Only the first player (creator) sets the game type.
-        const validGameTypes: GameType[] = ['coin_flip', 'tictactoe'];
+        const validGameTypes = Object.keys(gameHandlers) as GameType[];
         const safeGameType: GameType = validGameTypes.includes(gameType) ? gameType : 'coin_flip';
         room = { id: cleanRoomId, players: [], gamePhase: 'waiting', gameType: safeGameType };
         rooms.set(cleanRoomId, room);

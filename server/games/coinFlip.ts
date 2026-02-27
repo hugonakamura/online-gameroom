@@ -1,30 +1,38 @@
-import { CoinSide } from '../../shared/types';
+import { CoinFlipState, CoinSide } from '../../shared/types';
 import { Player, Room } from '../types';
 import type { GameHandler } from './index';
 
 export const coinFlipHandler: GameHandler = {
+  roomIdPrefix: 'FLIP',
+
   onGameStart(room: Room): void {
-    room.players.forEach((p) => { delete p.choice; });
-    room.flipResult = undefined;
+    room.players.forEach((p) => { p.hasActed = false; });
+    room.gameState = {
+      choices: Array(room.players.length).fill(null),
+    } satisfies CoinFlipState;
   },
 
   onGameInput(room: Room, player: Player, payload: unknown): void {
+    const state = room.gameState as CoinFlipState;
     const { choice } = payload as { choice: CoinSide };
     if (choice !== 'heads' && choice !== 'tails') return;
 
-    player.choice = choice;
+    const idx = room.players.findIndex((p) => p.id === player.id);
+    state.choices[idx] = choice;
+    player.hasActed = true;
 
-    const allChosen = room.players.length >= 2 && room.players.every((p) => p.choice);
+    const allChosen = room.players.length >= 2 && state.choices.every((c) => c !== null);
     room.gamePhase = allChosen ? 'ready' : 'choosing';
   },
 
   onGameAction(room: Room): void {
-    room.flipResult = Math.random() < 0.5 ? 'heads' : 'tails';
+    const state = room.gameState as CoinFlipState;
+    state.flipResult = Math.random() < 0.5 ? 'heads' : 'tails';
     room.gamePhase = 'result';
 
-    room.players
-      .filter((p) => p.choice === room.flipResult)
-      .forEach((p) => { p.score += 1; });
+    room.players.forEach((p, i) => {
+      if (state.choices[i] === state.flipResult) p.score += 1;
+    });
   },
 
   onPlayAgain(room: Room): void {

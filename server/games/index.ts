@@ -4,6 +4,8 @@ import { coinFlipHandler } from './coinFlip';
 import { ticTacToeHandler } from './ticTacToe';
 
 export interface GameHandler {
+  /** Prefix used when auto-generating room IDs (e.g. 'FLIP' → 'FLIP-A3K9M') */
+  roomIdPrefix: string;
   /** Maximum number of players allowed in the room (undefined = no limit) */
   maxPlayers?: number;
   /** Called when a game round starts or resets (join triggers start, leave triggers reset) */

@@ -16,6 +16,7 @@ function checkResult(board: (1 | 2 | null)[]): 1 | 2 | 'draw' | null {
 }
 
 export const ticTacToeHandler: GameHandler = {
+  roomIdPrefix: 'TTT',
   maxPlayers: 2,
 
   onGameStart(room: Room): void {
