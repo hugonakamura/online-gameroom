@@ -5,6 +5,7 @@
   flex-direction: column;
   align-items: center;
   gap: 18px;
+  min-height: 335px;
 }
 
 .hl-status {
@@ -30,8 +31,13 @@
   user-select: none;
 }
 
-.hl-card.red   { color: #c0392b; }
-.hl-card.black { color: #1a1a2e; }
+.hl-card.red {
+  color: #c0392b;
+}
+
+.hl-card.black {
+  color: #1a1a2e;
+}
 
 .hl-card-corner {
   position: absolute;
@@ -41,8 +47,16 @@
   text-align: center;
 }
 
-.hl-card-corner.top    { top: 6px;    left: 8px; }
-.hl-card-corner.bottom { bottom: 6px; right: 8px; transform: rotate(180deg); }
+.hl-card-corner.top {
+  top: 6px;
+  left: 8px;
+}
+
+.hl-card-corner.bottom {
+  bottom: 6px;
+  right: 8px;
+  transform: rotate(180deg);
+}
 
 .hl-card-suit {
   font-size: 2.4rem;
@@ -126,18 +140,41 @@
 /* ── Card back (suspense reveal) ──────────────────────────────────────────── */
 
 @keyframes hl-card-float {
-  0%, 100% { transform: translateY(0)    rotate(-1deg); }
-  50%      { transform: translateY(-8px) rotate(1deg);  }
+
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1deg);
+  }
+
+  50% {
+    transform: translateY(-8px) rotate(1deg);
+  }
 }
 
 @keyframes hl-card-flip-in {
-  from { transform: rotateY(90deg) scale(0.85); opacity: 0; }
-  to   { transform: rotateY(0deg)  scale(1);    opacity: 1; }
+  from {
+    transform: rotateY(90deg) scale(0.85);
+    opacity: 0;
+  }
+
+  to {
+    transform: rotateY(0deg) scale(1);
+    opacity: 1;
+  }
 }
 
 @keyframes hl-suspense-pulse {
-  0%, 100% { opacity: 0.25; transform: scale(0.9); }
-  50%      { opacity: 0.8;  transform: scale(1.2); }
+
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.9);
+  }
+
+  50% {
+    opacity: 0.8;
+    transform: scale(1.2);
+  }
 }
 
 .hl-card-back {
@@ -158,13 +195,11 @@
   inset: 5px;
   border-radius: 6px;
   border: 2px solid rgba(255, 255, 255, 0.25);
-  background: repeating-linear-gradient(
-    45deg,
-    rgba(255, 255, 255, 0.04),
-    rgba(255, 255, 255, 0.04) 3px,
-    transparent 3px,
-    transparent 12px
-  );
+  background: repeating-linear-gradient(45deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 3px,
+      transparent 3px,
+      transparent 12px);
 }
 
 .hl-card-revealed {
@@ -174,7 +209,8 @@
 .hl-reveal-arrow-suspense {
   font-size: 2.2rem;
   font-weight: 800;
-  padding-bottom: 42px; /* align with card center, same as .hl-reveal-arrow */
+  padding-bottom: 42px;
+  /* align with card center, same as .hl-reveal-arrow */
   color: var(--text-muted);
   animation: hl-suspense-pulse 0.7s ease-in-out infinite;
 }
@@ -206,12 +242,21 @@
   font-size: 2rem;
   font-weight: 800;
   color: var(--text-muted);
-  padding-bottom: 42px; /* align with card center */
+  padding-bottom: 42px;
+  /* align with card center */
 }
 
-.hl-reveal-arrow.higher { color: var(--success); }
-.hl-reveal-arrow.lower  { color: var(--error);   }
-.hl-reveal-arrow.equal  { color: var(--accent);  }
+.hl-reveal-arrow.higher {
+  color: var(--success);
+}
+
+.hl-reveal-arrow.lower {
+  color: var(--error);
+}
+
+.hl-reveal-arrow.equal {
+  color: var(--accent);
+}
 
 /* ── Player guesses ───────────────────────────────────────────────────────── */
 
@@ -255,8 +300,13 @@
   font-weight: 800;
 }
 
-.hl-guess-mark.correct { color: var(--success); }
-.hl-guess-mark.wrong   { color: var(--error);   }
+.hl-guess-mark.correct {
+  color: var(--success);
+}
+
+.hl-guess-mark.wrong {
+  color: var(--error);
+}
 
 /* ── Result actions ───────────────────────────────────────────────────────── */
 
@@ -264,9 +314,11 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: flex-start;
   gap: 14px;
   width: 100%;
   max-width: 320px;
+  min-height: 145px;
 }
 
 .btn.ready-waiting {
@@ -274,6 +326,7 @@
 }
 
 @media (max-width: 480px) {
+
   .hl-card,
   .hl-card-back {
     width: 76px;

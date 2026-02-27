@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardRank, HighLowChoice, HighLowState, Suit } from '../../../types';
 import { GameViewProps } from '../types';
+import { gameConfigs } from '../config';
 import './HighLow.css';
 
 function rankLabel(rank: CardRank): string {
@@ -13,10 +14,10 @@ function rankLabel(rank: CardRank): string {
 
 function suitSymbol(suit: Suit): string {
   switch (suit) {
-    case 'hearts':   return '♥';
+    case 'hearts': return '♥';
     case 'diamonds': return '♦';
-    case 'clubs':    return '♣';
-    case 'spades':   return '♠';
+    case 'clubs': return '♣';
+    case 'spades': return '♠';
   }
 }
 
@@ -51,7 +52,7 @@ export default function HighLow({ roomState, socketId, emit }: GameViewProps) {
   useEffect(() => {
     if (prevPhaseRef.current !== 'result' && roomState.gamePhase === 'result') {
       setIsRevealing(true);
-      const timer = setTimeout(() => setIsRevealing(false), 1500);
+      const timer = setTimeout(() => setIsRevealing(false), gameConfigs.highlow.revealDelayMs);
       prevPhaseRef.current = roomState.gamePhase;
       return () => clearTimeout(timer);
     }
@@ -208,23 +209,25 @@ export default function HighLow({ roomState, socketId, emit }: GameViewProps) {
       </div>
 
       {/* Result actions — hidden until card is revealed */}
-      {roomState.gamePhase === 'result' && state && !isRevealing && (
-        <div className="hl-actions">
-          {isPush && (
-            <div className="hl-multiplier">⚡ Next round worth {state.multiplier}×!</div>
-          )}
-          <div className={`result-banner ${resultBannerClass()}`}>
-            {resultBannerText()}
-          </div>
-          <button
-            className={`btn btn-primary${myReady ? ' ready-waiting' : ''}`}
-            disabled={myReady}
-            onClick={handleReady}
-          >
-            {readyLabel()}
-          </button>
-        </div>
-      )}
+      <div className="hl-actions">
+        {roomState.gamePhase === 'result' && state && !isRevealing && (
+          <>
+            {isPush && (
+              <div className="hl-multiplier">⚡ Next round worth {state.multiplier}×!</div>
+            )}
+            <div className={`result-banner ${resultBannerClass()}`}>
+              {resultBannerText()}
+            </div>
+            <button
+              className={`btn btn-primary${myReady ? ' ready-waiting' : ''}`}
+              disabled={myReady}
+              onClick={handleReady}
+            >
+              {readyLabel()}
+            </button>
+          </>
+        )}
+      </div>
     </>
   );
 }
