@@ -10,6 +10,8 @@ export interface GameHandler {
   roomIdPrefix: string;
   /** Maximum number of players allowed in the room (undefined = no limit) */
   maxPlayers?: number;
+  /** Minimum number of players required before a round starts (defaults to 2) */
+  minPlayers?: number;
   /** Called when a game round starts or resets (join triggers start, leave triggers reset) */
   onGameStart?(room: Room): void;
   /** Called when a player submits their input for the round (choice, bet, move, etc.) */

@@ -4,6 +4,7 @@ import type { GameHandler } from './index';
 
 export const coinFlipHandler: GameHandler = {
   roomIdPrefix: 'FLIP',
+  minPlayers: 1,
 
   onGameStart(room: Room): void {
     room.players.forEach((p) => { p.hasActed = false; });
@@ -21,7 +22,7 @@ export const coinFlipHandler: GameHandler = {
     state.choices[idx] = choice;
     player.hasActed = true;
 
-    const allChosen = room.players.length >= 2 && state.choices.every((c) => c !== null);
+    const allChosen = state.choices.every((c) => c !== null);
     room.gamePhase = allChosen ? 'ready' : 'choosing';
   },
 

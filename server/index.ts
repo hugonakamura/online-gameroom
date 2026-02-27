@@ -100,6 +100,37 @@ function broadcastRoomUpdate(room: Room): void {
   }
 }
 
+/**
+ * Start the game if the room is in 'waiting' and has enough players.
+ * Also handles the edge case where a new player joins while others are in 'ready'.
+ */
+function tryStartGame(room: Room): void {
+  const handler = gameHandlers[room.gameType];
+  const minPlayers = handler.minPlayers ?? 2;
+  if (room.gamePhase === 'waiting' && room.players.length >= minPlayers) {
+    handler.onGameStart?.(room);
+    room.gamePhase = 'choosing';
+  } else if (room.gamePhase === 'ready') {
+    // A new player joined while everyone else was ready — they still need to choose.
+    room.gamePhase = 'choosing';
+  }
+}
+
+/**
+ * Recalculate game phase after a player leaves or steps down to spectator.
+ * Calls onGameStart to reset round state whenever the room is not empty.
+ */
+function afterPlayerRemoved(room: Room): void {
+  const handler = gameHandlers[room.gameType];
+  const minPlayers = handler.minPlayers ?? 2;
+  if (room.players.length === 0) {
+    room.gamePhase = 'waiting';
+    return;
+  }
+  handler.onGameStart?.(room);
+  room.gamePhase = room.players.length >= minPlayers ? 'choosing' : 'waiting';
+}
+
 // ── Socket handlers ────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
   console.log(`[+] Connected: ${socket.id}`);
@@ -133,6 +164,7 @@ io.on('connection', (socket) => {
       sessions.set(sessionId, roomId);
       room.players.push({ id: socket.id, sessionId, nickname: cleanNickname, score: 0 });
 
+      tryStartGame(room);
       broadcastRoomUpdate(room);
       broadcastLobby();
       console.log(`[+] ${cleanNickname} created ${roomId} (${safeGameType})`);
@@ -243,13 +275,7 @@ io.on('connection', (socket) => {
       sessions.set(sessionId, cleanRoomId);
       room.players.push({ id: socket.id, sessionId, nickname: cleanNickname, score: 0 });
 
-      if (room.gamePhase === 'waiting' && room.players.length >= 2) {
-        handler.onGameStart?.(room);
-        room.gamePhase = 'choosing';
-      } else if (room.gamePhase === 'ready') {
-        // New player joined while everyone else was ready — they still need to choose.
-        room.gamePhase = 'choosing';
-      }
+      tryStartGame(room);
 
       broadcastRoomUpdate(room);
       broadcastLobby();
@@ -324,12 +350,7 @@ io.on('connection', (socket) => {
     room.spectators.push({ id: socket.id, sessionId: player.sessionId, nickname: player.nickname, score: 0 });
 
     // Reset the game for remaining players (same as a player leaving)
-    if (room.players.length > 0) {
-      gameHandlers[room.gameType].onGameStart?.(room);
-      room.gamePhase = room.players.length >= 2 ? 'choosing' : 'waiting';
-    } else {
-      room.gamePhase = 'waiting';
-    }
+    afterPlayerRemoved(room);
 
     broadcastRoomUpdate(room);
     broadcastLobby();
@@ -357,12 +378,7 @@ io.on('connection', (socket) => {
     room.players.push({ id: socket.id, sessionId: spectator.sessionId, nickname: spectator.nickname, score: spectator.score });
     socket.join(roomId); // join the Socket.io room for player broadcasts
 
-    if (room.gamePhase === 'waiting' && room.players.length >= 2) {
-      handler.onGameStart?.(room);
-      room.gamePhase = 'choosing';
-    } else if (room.gamePhase === 'ready') {
-      room.gamePhase = 'choosing';
-    }
+    tryStartGame(room);
 
     broadcastRoomUpdate(room);
     broadcastLobby();
@@ -406,8 +422,7 @@ io.on('connection', (socket) => {
       rooms.delete(roomId);
       console.log(`[-] Room ${roomId} deleted (empty)`);
     } else {
-      gameHandlers[room.gameType].onGameStart?.(room);
-      room.gamePhase = room.players.length >= 2 ? 'choosing' : 'waiting';
+      afterPlayerRemoved(room);
       broadcastRoomUpdate(room);
       console.log(`[-] ${player.nickname} left ${roomId}`);
     }
@@ -456,8 +471,7 @@ io.on('connection', (socket) => {
         rooms.delete(roomId);
         console.log(`[-] Room ${roomId} deleted (empty)`);
       } else {
-        gameHandlers[room.gameType].onGameStart?.(room);
-        room.gamePhase = room.players.length >= 2 ? 'choosing' : 'waiting';
+        afterPlayerRemoved(room);
         broadcastRoomUpdate(room);
         console.log(`[-] ${player.nickname} timed out, removed from ${roomId}`);
       }
