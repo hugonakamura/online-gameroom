@@ -59,8 +59,8 @@ export const rpsHandler: GameHandler = {
   },
 
   sanitizeGameState(room: Room, playerId: string): unknown {
-    const state = room.gameState as RPSState;
-    if (room.gamePhase === 'result') return state;
+    const state = room.gameState as RPSState | undefined;
+    if (!state || room.gamePhase === 'result') return state;
     const playerIndex = room.players.findIndex((p) => p.id === playerId);
     // Show each player their own choice; replace the opponent's locked-in choice
     // with 'hidden' so the client can distinguish "hasn't moved" (null) from
