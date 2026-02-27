@@ -23,8 +23,10 @@ export default function RPS({ roomState, socketId, emit }: GameViewProps) {
   const iWon  = typeof state?.winner === 'number' && state.winner === myIndex;
   const isDraw = state?.winner === 'draw';
 
-  const choiceEmoji = (c: RPSChoice | null) =>
-    OPTIONS.find((o) => o.choice === c)?.emoji ?? '❓';
+  const choiceEmoji = (c: RPSChoice | null) => {
+    if (c === 'hidden') return '✅';
+    return OPTIONS.find((o) => o.choice === c)?.emoji ?? '❓';
+  };
 
   const handleChoice = (choice: RPSChoice) => {
     if (myLocalChoice) return; // already sent
@@ -40,7 +42,9 @@ export default function RPS({ roomState, socketId, emit }: GameViewProps) {
   const statusMessage = () => {
     if (roomState.gamePhase === 'waiting') return 'Waiting for opponent to join…';
     if (roomState.gamePhase === 'result') return '';
-    return myLocalChoice ? 'Waiting for opponent…' : 'Choose your weapon!';
+    if (myLocalChoice) return 'Waiting for opponent…';
+    if (oppChoice === 'hidden') return 'Opponent is ready — make your move!';
+    return 'Choose your weapon!';
   };
 
   return (

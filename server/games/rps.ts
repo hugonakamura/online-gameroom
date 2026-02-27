@@ -2,7 +2,9 @@ import { RPSChoice, RPSState } from '../../shared/types';
 import { Player, Room } from '../types';
 import type { GameHandler } from './index';
 
-const BEATS: Record<RPSChoice, RPSChoice> = {
+type RealRPSChoice = Exclude<RPSChoice, 'hidden'>;
+
+const BEATS: Record<RealRPSChoice, RealRPSChoice> = {
   rock: 'scissors',
   scissors: 'paper',
   paper: 'rock',
@@ -33,7 +35,7 @@ export const rpsHandler: GameHandler = {
 
     // Reveal immediately once both players have chosen
     if (state.choices.every((c) => c !== null)) {
-      const [c0, c1] = state.choices as [RPSChoice, RPSChoice];
+      const [c0, c1] = state.choices as [RealRPSChoice, RealRPSChoice];
       if (c0 === c1) {
         state.winner = 'draw';
       } else if (BEATS[c0] === c1) {
@@ -56,13 +58,18 @@ export const rpsHandler: GameHandler = {
     room.gamePhase = 'choosing';
   },
 
-  sanitizeGameState(room: Room, playerIndex: number): unknown {
+  sanitizeGameState(room: Room, playerId: string): unknown {
     const state = room.gameState as RPSState;
     if (room.gamePhase === 'result') return state;
-    // Hide the opponent's choice until both players have locked in
+    const playerIndex = room.players.findIndex((p) => p.id === playerId);
+    // Show each player their own choice; replace the opponent's locked-in choice
+    // with 'hidden' so the client can distinguish "hasn't moved" (null) from
+    // "locked in, waiting on you" ('hidden')
     return {
       ...state,
-      choices: state.choices.map((c, i) => (i === playerIndex ? c : null)),
+      choices: state.choices.map((c, i) =>
+        i === playerIndex ? c : c !== null ? 'hidden' : null
+      ),
     };
   },
 };

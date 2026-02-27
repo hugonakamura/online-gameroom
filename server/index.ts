@@ -3,7 +3,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
 import { GameType, RoomState, LobbyRoom } from '../shared/types';
-import { Player, Room } from './types';
+import { Room } from './types';
 import { gameHandlers } from './games/index';
 
 const app = express();
@@ -58,11 +58,11 @@ function broadcastLobby() {
   io.to('lobby').emit('room_list', getLobbyRooms());
 }
 
-function getRoomState(room: Room, playerIndex?: number): RoomState {
+function getRoomState(room: Room, playerId?: string): RoomState {
   const handler = gameHandlers[room.gameType];
   const gameState =
-    playerIndex !== undefined && handler.sanitizeGameState
-      ? handler.sanitizeGameState(room, playerIndex)
+    playerId !== undefined && handler.sanitizeGameState
+      ? handler.sanitizeGameState(room, playerId)
       : room.gameState;
   return {
     roomId: room.id,
@@ -83,8 +83,8 @@ function broadcastRoomUpdate(room: Room): void {
   const handler = gameHandlers[room.gameType];
   if (handler.sanitizeGameState) {
     // Send each player a personalized view with opponent choices hidden
-    room.players.forEach((p, i) => {
-      io.to(p.id).emit('room_update', getRoomState(room, i));
+    room.players.forEach((p) => {
+      io.to(p.id).emit('room_update', getRoomState(room, p.id));
     });
   } else {
     io.to(room.id).emit('room_update', getRoomState(room));

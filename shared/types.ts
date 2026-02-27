@@ -13,7 +13,8 @@ export interface CoinFlipState {
   flipResult?: CoinSide;
 }
 
-export type RPSChoice = 'rock' | 'paper' | 'scissors';
+/** 'hidden' is a server-side sentinel: the opponent has locked in but their choice is not revealed yet */
+export type RPSChoice = 'rock' | 'paper' | 'scissors' | 'hidden';
 
 export interface RPSState {
   /** Indexed by player position in room.players */

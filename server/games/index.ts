@@ -23,7 +23,7 @@ export interface GameHandler {
    * before the result is revealed (e.g. RPS). If omitted, the full gameState
    * is broadcast to all players.
    */
-  sanitizeGameState?(room: Room, playerIndex: number): unknown;
+  sanitizeGameState?(room: Room, playerId: string): unknown;
 }
 
 export const gameHandlers: Record<GameType, GameHandler> = {
