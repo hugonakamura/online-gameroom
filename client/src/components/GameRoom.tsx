@@ -1,6 +1,6 @@
-import { Suspense } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { RoomState, GamePhase, PlayerState, SpectatorState } from '../types';
-import { gameViews } from './games';
+import { gameViews, gameConfigs } from './games';
 
 interface Props {
   roomId: string;
@@ -16,11 +16,27 @@ function PlayerCard({
   player,
   isMe,
   gamePhase,
+  scoreDelayMs,
 }: {
   player: PlayerState;
   isMe: boolean;
   gamePhase: GamePhase;
+  scoreDelayMs: number;
 }) {
+  const [displayedScore, setDisplayedScore] = useState(player.score);
+
+  useEffect(() => {
+    if (player.score > displayedScore) {
+      if (gamePhase === 'result' && scoreDelayMs > 0) {
+        const t = setTimeout(() => setDisplayedScore(player.score), scoreDelayMs);
+        return () => clearTimeout(t);
+      } else {
+        setDisplayedScore(player.score);
+      }
+    } else if (player.score !== displayedScore) {
+      setDisplayedScore(player.score);
+    }
+  }, [player.score, displayedScore, gamePhase, scoreDelayMs]);
   const statusText = () => {
     if (gamePhase === 'waiting') return 'In room';
     if (gamePhase === 'result') return player.hasChosen ? '✓ Done' : '—';
@@ -40,7 +56,7 @@ function PlayerCard({
         </span>
       </div>
       <div className="player-score">
-        <span className="score-value">{player.score}</span>
+        <span className="score-value">{displayedScore}</span>
         <span className="score-label">pts</span>
       </div>
     </div>
@@ -106,6 +122,7 @@ export default function GameRoom({ roomId, socketId, roomState, emit, onLeave }:
               player={player}
               isMe={player.id === socketId}
               gamePhase={roomState.gamePhase}
+              scoreDelayMs={gameConfigs[roomState.gameType]?.revealDelayMs ?? 0}
             />
           ))}
         </div>
@@ -115,7 +132,7 @@ export default function GameRoom({ roomId, socketId, roomState, emit, onLeave }:
           <GameView
             roomState={roomState}
             socketId={socketId}
-            emit={isSpectator ? () => {} : emit}
+            emit={isSpectator ? () => { } : emit}
           />
         </Suspense>
       </div>

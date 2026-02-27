@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { CoinFlipState, CoinSide, GamePhase } from '../../../types';
 import { GameViewProps } from '../types';
+import { gameConfigs } from '../config';
 import './CoinFlip.css';
 
 export default function CoinFlip({ roomState, socketId, emit }: GameViewProps) {
@@ -22,7 +23,7 @@ export default function CoinFlip({ roomState, socketId, emit }: GameViewProps) {
   useEffect(() => {
     if (roomState.gamePhase === 'result' && prevPhaseRef.current !== 'result') {
       setIsFlipping(true);
-      const t = setTimeout(() => setIsFlipping(false), 3000);
+      const t = setTimeout(() => setIsFlipping(false), gameConfigs.coin_flip.revealDelayMs);
       prevPhaseRef.current = roomState.gamePhase;
       return () => clearTimeout(t);
     }
