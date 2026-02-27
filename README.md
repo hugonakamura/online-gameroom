@@ -1,6 +1,6 @@
 # Flip-Socket
 
-A real-time multiplayer game platform built with a full-stack WebSocket architecture — from local development to live production. Currently ships with **Coin Flip** and **Tic-Tac-Toe**, with the codebase structured so that adding a new game type requires touching only the game files themselves.
+A real-time multiplayer game platform built with a full-stack WebSocket architecture — from local development to live production. Currently ships with **Coin Flip**, **Tic-Tac-Toe**, and **Rock Paper Scissors**, with the codebase structured so that adding a new game type requires touching only the game files themselves.
 
 ## How it works
 
@@ -14,7 +14,7 @@ Player C ──┘
 
 ## Features
 
-- **Multiple games** — Coin Flip (any number of players) and Tic-Tac-Toe (2 players)
+- **Multiple games** — Coin Flip (any players), Tic-Tac-Toe (2 players), Rock Paper Scissors (2 players)
 - **Auto-generated room IDs** — create a room with one click; no manual ID needed
 - **Open rooms lobby** — the join screen lists all active rooms in real time; click Join to enter
 - **Game type selection** — the room creator picks the game mode; joiners use the host's setting
@@ -48,7 +48,8 @@ flip-socket/
 │   └── games/
 │       ├── index.ts              # GameHandler interface + registry (Record<GameType, GameHandler>)
 │       ├── coinFlip.ts           # Coin flip: roomIdPrefix, onGameStart, onGameInput, onGameAction, onPlayAgain
-│       └── ticTacToe.ts          # Tic-tac-toe: roomIdPrefix, maxPlayers, onGameStart, onGameInput, onPlayAgain
+│       ├── ticTacToe.ts          # Tic-tac-toe: roomIdPrefix, maxPlayers, onGameStart, onGameInput, onPlayAgain
+│       └── rps.ts                # Rock Paper Scissors: roomIdPrefix, maxPlayers, onGameStart, onGameInput, onPlayAgain
 │
 └── client/
     ├── src/
@@ -64,63 +65,57 @@ flip-socket/
     │           ├── CoinFlip/
     │           │   ├── index.tsx # Coin flip UI: choice buttons, coin animation, result
     │           │   └── CoinFlip.css
-    │           └── TicTacToe/
-    │               ├── index.tsx # Tic-tac-toe UI: 3×3 board, turn indicator, result
-    │               └── TicTacToe.css
+    │           ├── TicTacToe/
+    │           │   ├── index.tsx # Tic-tac-toe UI: 3×3 board, turn indicator, result
+    │           │   └── TicTacToe.css
+    │           └── RPS/
+    │               ├── index.tsx # Rock Paper Scissors UI: weapon buttons, result reveal
+    │               └── RPS.css
     └── vite.config.ts
 ```
 
 ## Adding a new game
 
-Both sides follow the same registry pattern. To add a dice game, for example:
+Adding a game means editing **exactly 4 files** and creating **2–3 new files**. Nothing in the platform layer (`server/index.ts`, `GameRoom.tsx`, `App.tsx`) needs to change.
 
-**1. Shared types** — add the game variant and its state shape:
-```typescript
-// shared/types.ts
-export type GameType = 'coin_flip' | 'tictactoe' | 'dice';
+The example below adds a hypothetical dice game.
 
-export interface DiceState {
-  // whatever the game needs
-}
-```
+### Files to edit
 
-**2. Server** — implement `GameHandler` and register it:
-```
-server/games/dice.ts        ← roomIdPrefix, onGameStart?, onGameInput, onGameAction, onPlayAgain
-server/games/index.ts       ← add:  dice: diceHandler
-```
+| File | What to add |
+|---|---|
+| `shared/types.ts` | `'dice'` to the `GameType` union + a `DiceState` interface |
+| `server/games/index.ts` | `import { diceHandler } from './dice'` + `dice: diceHandler` in the registry |
+| `client/src/components/games/index.ts` | `import Dice from './Dice'` + `dice: Dice` in the registry |
+| `client/src/components/JoinRoom.tsx` | `{ value: 'dice', label: '🎲 Dice' }` in the `GAME_OPTIONS` array |
 
-The `roomIdPrefix` on the handler (e.g. `'DICE'`) drives room ID generation (`DICE-XXXXX`). Valid game types are derived directly from the registry — no edits to `server/index.ts` needed.
+### Files to create
 
-**3. Client** — implement a React component and register it:
-```
-client/src/components/games/Dice/index.tsx   ← GameViewProps component (reads roomState.gameState)
-client/src/components/games/Dice/Dice.css    ← game-specific styles
-client/src/components/games/index.ts         ← add:  dice: Dice
-```
-
-**4. Lobby option**:
-```typescript
-// JoinRoom.tsx — GAME_OPTIONS
-{ value: 'dice', label: '🎲 Dice' }
-```
-
-`server/index.ts`, `GameRoom.tsx`, and `App.tsx` need **zero changes**.
+| File | What goes in it |
+|---|---|
+| `server/games/dice.ts` | A `GameHandler` object — see interface below |
+| `client/src/components/games/Dice/index.tsx` | A React component that receives `GameViewProps` and renders the game UI |
+| `client/src/components/games/Dice/Dice.css` | Game-specific styles |
 
 ### GameHandler interface
 
 ```typescript
+// server/games/index.ts
 interface GameHandler {
-  roomIdPrefix: string;           // e.g. 'FLIP', 'TTT' — drives room ID generation
-  maxPlayers?: number;            // enforced on join; undefined = no limit
-  onGameStart?(room: Room): void; // called on first join and after every player leave/disconnect
-  onGameInput(room, player, payload): void; // player submitted a move/choice
-  onGameAction(room, player): void;         // player triggered the primary action (flip, etc.)
-  onPlayAgain(room): void;                  // all players want another round
+  roomIdPrefix: string;            // room ID prefix, e.g. 'DICE' → room IDs like 'DICE-A1B2C'
+  maxPlayers?: number;             // cap enforced on join; omit for no limit
+  onGameStart?(room: Room): void;  // initialize gameState; called on first join and after any player leaves
+  onGameInput(room: Room, player: Player, payload: unknown): void; // player sent game_input
+  onGameAction(room: Room, player: Player): void; // player sent game_action (e.g. "flip the coin")
+  onPlayAgain(room: Room): void;   // reset for another round
 }
 ```
 
-All game-specific state (board, choices, results, etc.) is stored in `room.gameState` and sent to the client as `roomState.gameState`. Each game casts it to its own type.
+Key rules:
+- Store all game state in `room.gameState` (typed however you like — cast with `as YourState`).
+- `room.gamePhase` is the platform field that drives the client UI — set it to `'choosing'`, `'ready'`, or `'result'` as the game progresses.
+- The only per-player platform field game handlers may use is `player.hasActed` (set it in `onGameInput`; clear it in `onGameStart`).
+- `roomIdPrefix` is the only field that drives room ID generation — `server/index.ts` reads it from the handler automatically.
 
 ## Running locally
 
@@ -196,6 +191,15 @@ waiting ──► choosing ──► result
 1. **Waiting** — room created; waiting for second player
 2. **Choosing** — players alternate placing X and O
 3. **Result** — win or draw detected; winner earns a point; Play Again resets the board
+
+**Rock Paper Scissors** (exactly 2 players):
+```
+waiting ──► choosing ──► result
+            (pick R/P/S)  (play again?)
+```
+1. **Waiting** — room created; waiting for second player
+2. **Choosing** — both players pick simultaneously; neither sees the other's choice until both have locked in
+3. **Result** — choices revealed side by side; winner earns a point; Play Again resets
 
 ## Socket events
 

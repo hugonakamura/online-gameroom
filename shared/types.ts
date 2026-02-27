@@ -5,12 +5,21 @@
 
 export type CoinSide = 'heads' | 'tails';
 export type GamePhase = 'waiting' | 'choosing' | 'ready' | 'result';
-export type GameType = 'coin_flip' | 'tictactoe';
+export type GameType = 'coin_flip' | 'tictactoe' | 'rps';
 
 export interface CoinFlipState {
   /** Indexed by player position in room.players (same order as RoomState.players) */
   choices: (CoinSide | null)[];
   flipResult?: CoinSide;
+}
+
+export type RPSChoice = 'rock' | 'paper' | 'scissors';
+
+export interface RPSState {
+  /** Indexed by player position in room.players */
+  choices: (RPSChoice | null)[];
+  /** 0 = player at index 0 won, 1 = player at index 1 won, 'draw', null = in progress */
+  winner: 0 | 1 | 'draw' | null;
 }
 
 export interface TicTacToeState {
