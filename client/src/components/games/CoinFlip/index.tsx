@@ -22,7 +22,7 @@ export default function CoinFlip({ roomState, socketId, emit }: GameViewProps) {
   useEffect(() => {
     if (roomState.gamePhase === 'result' && prevPhaseRef.current !== 'result') {
       setIsFlipping(true);
-      const t = setTimeout(() => setIsFlipping(false), 1200);
+      const t = setTimeout(() => setIsFlipping(false), 3000);
       prevPhaseRef.current = roomState.gamePhase;
       return () => clearTimeout(t);
     }
@@ -35,22 +35,22 @@ export default function CoinFlip({ roomState, socketId, emit }: GameViewProps) {
     myChoice === state.flipResult;
 
   const coinEmoji = () => {
-    if (roomState.gamePhase !== 'result') return '🪙';
+    if (roomState.gamePhase !== 'result' || isFlipping) return '🪙';
     return state?.flipResult === 'heads' ? '👑' : '🦅';
   };
 
   const phaseMessage = () => {
     switch (roomState.gamePhase) {
-      case 'waiting':  return 'Waiting for more players to join…';
+      case 'waiting': return 'Waiting for more players to join…';
       case 'choosing': return me?.hasChosen ? 'Waiting for others…' : 'Pick your side!';
-      case 'ready':    return 'Everyone\'s ready — flip the coin!';
-      case 'result':   return `The coin landed on ${state?.flipResult}!`;
+      case 'ready': return 'Everyone\'s ready — flip the coin!';
+      case 'result': return isFlipping ? 'The coin is in the air...' : `The coin landed on ${state?.flipResult}!`;
     }
   };
 
   const coinClass = [
     'coin-display',
-    roomState.gamePhase === 'result' ? state?.flipResult : '',
+    (roomState.gamePhase === 'result' && !isFlipping) ? state?.flipResult : '',
     isFlipping ? 'flipping' : '',
   ]
     .filter(Boolean)
@@ -96,7 +96,7 @@ export default function CoinFlip({ roomState, socketId, emit }: GameViewProps) {
           </button>
         )}
 
-        {roomState.gamePhase === 'result' && (
+        {roomState.gamePhase === 'result' && !isFlipping && (
           <div className="result-section">
             <div className={`result-banner ${iWon ? 'win' : 'lose'}`}>
               {iWon ? '🎉 You Win!' : '😔 Better luck next time!'}
