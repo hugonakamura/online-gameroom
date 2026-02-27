@@ -1,6 +1,6 @@
 # Flip-Socket
 
-A real-time multiplayer game platform built with a full-stack WebSocket architecture — from local development to live production. Currently ships with **Coin Flip**, **Tic-Tac-Toe**, and **Rock Paper Scissors**, with the codebase structured so that adding a new game type requires touching only the game files themselves.
+A real-time multiplayer game platform built with a full-stack WebSocket architecture — from local development to live production. Currently ships with **Coin Flip**, **Tic-Tac-Toe**, **Rock Paper Scissors**, and **High / Low**, with the codebase structured so that adding a new game type requires touching only the game files themselves.
 
 ## How it works
 
@@ -14,19 +14,21 @@ Player C ──┘
 
 ## Features
 
-- **Multiple games** — Coin Flip (any players), Tic-Tac-Toe (2 players), Rock Paper Scissors (2 players)
+- **Multiple games** — Coin Flip (any players), Tic-Tac-Toe (2 players), Rock Paper Scissors (2 players), High / Low card game (2 players)
 - **Auto-generated room IDs** — create a room with one click; no manual ID needed
 - **Open rooms lobby** — the join screen lists all active rooms in real time; click Join to enter
 - **Game type selection** — the room creator picks the game mode; joiners use the host's setting
 - **Score tracking** — points accumulate across rounds; the room keeps score for the session
 - **Persistent nickname** — your display name is remembered when you leave and rejoin
 - **Reconnection handling** — a 10-second grace period restores your slot if you lose connection
+- **URL routing** — each room has its own URL (`/room/FLIP-XXXXX`); browser back button returns to the lobby
 
 ## Tech stack
 
 | Layer | Technology |
 |---|---|
 | Frontend | React + Vite (TypeScript) |
+| Routing | React Router v6 |
 | Backend | Node.js + Express (TypeScript) |
 | Real-time | Socket.io (WebSockets) |
 | Deployment | Render.com |
@@ -40,7 +42,7 @@ flip-socket/
 ├── shared/
 │   └── types.ts                  # Wire types shared by server and client
 │                                 #   (GameType, GamePhase, CoinFlipState, TicTacToeState,
-│                                 #    PlayerState, RoomState, LobbyRoom)
+│                                 #    RpsState, HighLowState, Card, PlayerState, RoomState, LobbyRoom)
 │
 ├── server/
 │   ├── index.ts                  # Express + Socket.io, room management, lobby (platform only)
@@ -49,11 +51,12 @@ flip-socket/
 │       ├── index.ts              # GameHandler interface + registry (Record<GameType, GameHandler>)
 │       ├── coinFlip.ts           # Coin flip: roomIdPrefix, onGameStart, onGameInput, onGameAction, onPlayAgain
 │       ├── ticTacToe.ts          # Tic-tac-toe: roomIdPrefix, maxPlayers, onGameStart, onGameInput, onPlayAgain
-│       └── rps.ts                # Rock Paper Scissors: roomIdPrefix, maxPlayers, onGameStart, onGameInput, onPlayAgain
+│       ├── rps.ts                # Rock Paper Scissors: roomIdPrefix, maxPlayers, onGameStart, onGameInput, onPlayAgain
+│       └── highLow.ts            # High / Low: roomIdPrefix, maxPlayers, onGameStart, onGameInput, onPlayAgain
 │
 └── client/
     ├── src/
-    │   ├── App.tsx               # Socket connection, session persistence, room state
+    │   ├── App.tsx               # Socket connection, session persistence, room state, React Router routes
     │   ├── types.ts              # Re-exports from ../../shared/types
     │   ├── index.css             # Generic styles (layout, players, lobby, buttons)
     │   └── components/
@@ -61,16 +64,19 @@ flip-socket/
     │       ├── GameRoom.tsx      # Generic shell: header, player cards, game component router
     │       └── games/
     │           ├── types.ts      # GameViewProps interface
-    │           ├── index.ts      # gameViews registry (Record<GameType, ComponentType>)
+    │           ├── index.ts      # gameViews registry (Record<GameType, ComponentType>); each entry is React.lazy()
     │           ├── CoinFlip/
     │           │   ├── index.tsx # Coin flip UI: choice buttons, coin animation, result
     │           │   └── CoinFlip.css
     │           ├── TicTacToe/
     │           │   ├── index.tsx # Tic-tac-toe UI: 3×3 board, turn indicator, result
     │           │   └── TicTacToe.css
-    │           └── RPS/
-    │               ├── index.tsx # Rock Paper Scissors UI: weapon buttons, result reveal
-    │               └── RPS.css
+    │           ├── RPS/
+    │           │   ├── index.tsx # Rock Paper Scissors UI: weapon buttons, result reveal
+    │           │   └── RPS.css
+    │           └── HighLow/
+    │               ├── index.tsx # High / Low UI: playing card, Higher/Lower buttons, multiplier badge, result
+    │               └── HighLow.css
     └── vite.config.ts
 ```
 
@@ -86,7 +92,7 @@ The example below adds a hypothetical dice game.
 |---|---|
 | `shared/types.ts` | `'dice'` to the `GameType` union + a `DiceState` interface |
 | `server/games/index.ts` | `import { diceHandler } from './dice'` + `dice: diceHandler` in the registry |
-| `client/src/components/games/index.ts` | `import Dice from './Dice'` + `dice: Dice` in the registry |
+| `client/src/components/games/index.ts` | `dice: lazy(() => import('./Dice'))` in the registry |
 | `client/src/components/JoinRoom.tsx` | `{ value: 'dice', label: '🎲 Dice' }` in the `GAME_OPTIONS` array |
 
 ### Files to create
@@ -102,12 +108,13 @@ The example below adds a hypothetical dice game.
 ```typescript
 // server/games/index.ts
 interface GameHandler {
-  roomIdPrefix: string;            // room ID prefix, e.g. 'DICE' → room IDs like 'DICE-A1B2C'
-  maxPlayers?: number;             // cap enforced on join; omit for no limit
-  onGameStart?(room: Room): void;  // initialize gameState; called on first join and after any player leaves
+  roomIdPrefix: string;                              // room ID prefix, e.g. 'DICE' → room IDs like 'DICE-A1B2C'
+  maxPlayers?: number;                               // cap enforced on join; omit for no limit
+  onGameStart?(room: Room): void;                    // initialize gameState; called on first join and after any player leaves
   onGameInput(room: Room, player: Player, payload: unknown): void; // player sent game_input
-  onGameAction(room: Room, player: Player): void; // player sent game_action (e.g. "flip the coin")
-  onPlayAgain(room: Room): void;   // reset for another round
+  onGameAction(room: Room, player: Player): void;    // player sent game_action (e.g. "flip the coin")
+  onPlayAgain(room: Room, player: Player): void;     // a player confirmed ready for next round
+  sanitizeGameState?(state: unknown): unknown;       // strip server-only fields before broadcasting
 }
 ```
 
@@ -116,6 +123,8 @@ Key rules:
 - `room.gamePhase` is the platform field that drives the client UI — set it to `'choosing'`, `'ready'`, or `'result'` as the game progresses.
 - The only per-player platform field game handlers may use is `player.hasActed` (set it in `onGameInput`; clear it in `onGameStart`).
 - `roomIdPrefix` is the only field that drives room ID generation — `server/index.ts` reads it from the handler automatically.
+- `onPlayAgain` is called once per player confirmation — track a ready-vote set inside `gameState` if all players must confirm before the next round starts.
+- Use `sanitizeGameState` to strip server-only fields (e.g. the full deck, pending vote lists) before the state is sent to clients.
 
 ## Running locally
 
@@ -200,6 +209,16 @@ waiting ──► choosing ──► result
 1. **Waiting** — room created; waiting for second player
 2. **Choosing** — both players pick simultaneously; neither sees the other's choice until both have locked in
 3. **Result** — choices revealed side by side; winner earns a point; Play Again resets
+
+**High / Low** (exactly 2 players):
+```
+waiting ──► choosing ──► result
+            (Higher/Lower)  (both ready?)
+```
+1. **Waiting** — room created; waiting for second player
+2. **Choosing** — a card is shown face-up; both players simultaneously guess whether the next card will be Higher or Lower
+3. **Result** — next card revealed; correct guessers earn a point; if both guesses are wrong or both right, either player can still earn; if ranks are equal it's a push and the next round's points double (multiplier stacks); both players must click Ready to advance
+4. **Deck** — a standard 52-card deck is shared across rounds; it auto-reshuffles when exhausted
 
 ## Socket events
 
