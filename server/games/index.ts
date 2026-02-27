@@ -16,8 +16,8 @@ export interface GameHandler {
   onGameInput(room: Room, player: Player, payload: unknown): void;
   /** Called when a player triggers the primary game action (flip, roll, reveal, etc.) */
   onGameAction(room: Room, player: Player): void;
-  /** Called when all players want to play another round */
-  onPlayAgain(room: Room): void;
+  /** Called when a player signals they are ready for the next round */
+  onPlayAgain(room: Room, player: Player): void;
   /**
    * Optional: return a sanitized copy of gameState for a specific player.
    * Implement this for games where players must not see each other's choices

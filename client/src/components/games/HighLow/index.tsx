@@ -24,13 +24,12 @@ function suitColor(suit: Suit): 'red' | 'black' {
   return suit === 'hearts' || suit === 'diamonds' ? 'red' : 'black';
 }
 
-function PlayingCard({ card, label }: { card: Card; label?: string }) {
+function PlayingCard({ card }: { card: Card }) {
   const rank = rankLabel(card.rank);
   const suit = suitSymbol(card.suit);
   const color = suitColor(card.suit);
   return (
     <div className={`hl-card ${color}`}>
-      {label && <span className="hl-card-label">{label}</span>}
       <span className="hl-card-corner top">{rank}<br />{suit}</span>
       <span className="hl-card-suit">{suit}</span>
       <span className="hl-card-corner bottom">{rank}<br />{suit}</span>
@@ -40,37 +39,31 @@ function PlayingCard({ card, label }: { card: Card; label?: string }) {
 
 export default function HighLow({ roomState, socketId, emit }: GameViewProps) {
   const [myLocalChoice, setMyLocalChoice] = useState<HighLowChoice | null>(null);
+  const [myReady, setMyReady] = useState(false);
 
   const state = roomState.gameState as HighLowState | undefined;
   const myIndex = roomState.players.findIndex((p) => p.id === socketId);
-  const me = roomState.players[myIndex];
-  const opponent = roomState.players[myIndex === 0 ? 1 : 0];
 
   const myChoice = state?.choices[myIndex] ?? null;
   const oppChoice = state?.choices[myIndex === 0 ? 1 : 0] ?? null;
 
-  const iWon =
-    !!state &&
-    state.outcome !== null &&
-    state.outcome !== 'equal' &&
-    myChoice === state.outcome;
-  const oppWon =
-    !!state &&
-    state.outcome !== null &&
-    state.outcome !== 'equal' &&
-    (oppChoice === state.outcome || (myIndex === 0 ? state.choices[1] : state.choices[0]) === state.outcome);
-  const bothWon = iWon && oppWon;
-  const isPush = state?.outcome === 'equal';
+  const outcome = state?.outcome ?? null;
+  const isPush = outcome === 'equal';
 
-  // Reset local choice when a new round starts
-  if (roomState.gamePhase === 'choosing' && myLocalChoice && !myChoice) {
-    setMyLocalChoice(null);
-  }
+  // Reset local state when entering a new round
+  if (roomState.gamePhase === 'choosing' && myLocalChoice) setMyLocalChoice(null);
+  if (roomState.gamePhase === 'choosing' && myReady) setMyReady(false);
 
   const handleChoice = (choice: 'higher' | 'lower') => {
     if (myLocalChoice) return;
     emit('game_input', { choice });
     setMyLocalChoice(choice);
+  };
+
+  const handleReady = () => {
+    if (myReady) return;
+    emit('play_again');
+    setMyReady(true);
   };
 
   const statusMessage = () => {
@@ -80,40 +73,50 @@ export default function HighLow({ roomState, socketId, emit }: GameViewProps) {
     return 'Choose: Higher or Lower?';
   };
 
-  const outcomeArrow = () => {
-    if (state?.outcome === 'higher') return '↑';
-    if (state?.outcome === 'lower') return '↓';
-    return '=';
+  const outcomeArrowClass = outcome === 'higher' ? 'higher' : outcome === 'lower' ? 'lower' : 'equal';
+  const outcomeArrowChar = outcome === 'higher' ? '↑' : outcome === 'lower' ? '↓' : '=';
+
+  const resultBannerClass = () => {
+    if (isPush) return 'draw';
+    const iWon = myChoice === outcome;
+    return iWon ? 'win' : 'lose';
   };
 
-  const resultBannerClass = isPush ? 'draw' : bothWon ? 'win' : iWon ? 'win' : 'lose';
   const resultBannerText = () => {
     const pts = state!.multiplier;
     const ptStr = `${pts} pt${pts !== 1 ? 's' : ''}`;
     if (isPush) return `Push — next round worth ${state!.multiplier}×!`;
-    if (bothWon) return `🤝 Both correct! (+${ptStr} each)`;
+    const myActualChoice = state!.choices[myIndex];
+    const iWon = myActualChoice === outcome;
+    const oppActualChoice = state!.choices[myIndex === 0 ? 1 : 0];
+    const oppWon = oppActualChoice === outcome;
+    if (iWon && oppWon) return `🤝 Both correct! (+${ptStr} each)`;
     if (iWon) return `🎉 You Win! (+${ptStr})`;
     return '😔 Better luck next time!';
+  };
+
+  const readyLabel = () => {
+    if (!myReady) return 'Ready ✓';
+    const waiting = roomState.players.length - (state?.readyCount ?? 0);
+    return waiting > 0 ? 'Waiting for opponent…' : 'Ready ✓';
   };
 
   return (
     <>
       <div className="hl-section">
+        {/* Choosing phase */}
         {roomState.gamePhase !== 'result' && (
           <>
             {state && state.multiplier > 1 && (
               <div className="hl-multiplier">⚡ {state.multiplier}× Round!</div>
             )}
-
             <p className="hl-status">{statusMessage()}</p>
-
             {state && (
               <>
                 <PlayingCard card={state.currentCard} />
                 <span className="hl-cards-left">{state.cardsRemaining} cards left in deck</span>
               </>
             )}
-
             {roomState.gamePhase === 'choosing' && (
               <div className="hl-choices">
                 <button
@@ -137,46 +140,62 @@ export default function HighLow({ roomState, socketId, emit }: GameViewProps) {
           </>
         )}
 
+        {/* Result phase: card pair */}
         {roomState.gamePhase === 'result' && state && state.nextCard && (
-          <div className="hl-reveal">
-            <div className="hl-reveal-slot">
-              <PlayingCard card={state.currentCard} label={me?.nickname ?? 'You'} />
-              <span className="hl-reveal-guess">
-                {myChoice === 'higher' ? '↑ Higher' : myChoice === 'lower' ? '↓ Lower' : '—'}
-              </span>
+          <>
+            <div className="hl-reveal">
+              <div className="hl-reveal-card">
+                <span className="hl-reveal-label">Was</span>
+                <PlayingCard card={state.currentCard} />
+              </div>
+              <div className={`hl-reveal-arrow ${outcomeArrowClass}`}>{outcomeArrowChar}</div>
+              <div className="hl-reveal-card">
+                <span className="hl-reveal-label">Drawn</span>
+                <PlayingCard card={state.nextCard} />
+              </div>
             </div>
 
-            <div className={`hl-reveal-arrow ${state.outcome ?? ''}`}>{outcomeArrow()}</div>
-
-            <div className="hl-reveal-slot">
-              <PlayingCard card={state.nextCard} label={opponent?.nickname ?? 'Opponent'} />
-              <span className="hl-reveal-guess">
-                {(() => {
-                  const oppActualChoice = state.choices[myIndex === 0 ? 1 : 0];
-                  return oppActualChoice === 'higher' ? '↑ Higher' : oppActualChoice === 'lower' ? '↓ Lower' : '—';
-                })()}
-              </span>
+            {/* Player guesses */}
+            <div className="hl-guesses">
+              {roomState.players.map((player, i) => {
+                const choice = state.choices[i];
+                const isCorrect = !isPush && choice !== null && choice === outcome;
+                const isWrong = !isPush && choice !== null && choice !== outcome;
+                const isMe = player.id === socketId;
+                return (
+                  <div key={player.id} className={`hl-guess-item${isMe ? ' me' : ''}`}>
+                    <span className="hl-guess-name">{player.nickname}{isMe ? ' (you)' : ''}</span>
+                    <span className="hl-guess-choice">
+                      {choice === 'higher' ? '↑ Higher' : choice === 'lower' ? '↓ Lower' : '—'}
+                    </span>
+                    {!isPush && (
+                      <span className={`hl-guess-mark ${isCorrect ? 'correct' : isWrong ? 'wrong' : ''}`}>
+                        {isCorrect ? '✓' : isWrong ? '✗' : ''}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          </div>
+          </>
         )}
       </div>
 
+      {/* Result actions */}
       {roomState.gamePhase === 'result' && state && (
         <div className="hl-actions">
           {isPush && (
             <div className="hl-multiplier">⚡ Next round worth {state.multiplier}×!</div>
           )}
-          <div className={`result-banner ${resultBannerClass}`}>
+          <div className={`result-banner ${resultBannerClass()}`}>
             {resultBannerText()}
           </div>
           <button
-            className="btn btn-primary"
-            onClick={() => {
-              setMyLocalChoice(null);
-              emit('play_again');
-            }}
+            className={`btn btn-primary${myReady ? ' ready-waiting' : ''}`}
+            disabled={myReady}
+            onClick={handleReady}
           >
-            Play Next Card
+            {readyLabel()}
           </button>
         </div>
       )}

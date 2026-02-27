@@ -30,7 +30,7 @@
   user-select: none;
 }
 
-.hl-card.red  { color: #c0392b; }
+.hl-card.red   { color: #c0392b; }
 .hl-card.black { color: #1a1a2e; }
 
 .hl-card-corner {
@@ -47,17 +47,6 @@
 .hl-card-suit {
   font-size: 2.4rem;
   line-height: 1;
-}
-
-.hl-card-label {
-  position: absolute;
-  top: -22px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  white-space: nowrap;
 }
 
 /* ── Cards remaining ──────────────────────────────────────────────────────── */
@@ -138,35 +127,80 @@
 
 .hl-reveal {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 14px;
 }
 
-.hl-reveal-slot {
+.hl-reveal-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 28px; /* extra space for the .hl-card-label above */
-  padding-top: 24px;
+  gap: 8px;
 }
 
-.hl-reveal-guess {
-  font-size: 0.82rem;
+.hl-reveal-label {
+  font-size: 0.72rem;
   font-weight: 600;
   color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .hl-reveal-arrow {
   font-size: 2rem;
   font-weight: 800;
   color: var(--text-muted);
-  align-self: center;
-  margin-top: 24px;
+  padding-bottom: 42px; /* align with card center */
 }
 
 .hl-reveal-arrow.higher { color: var(--success); }
 .hl-reveal-arrow.lower  { color: var(--error);   }
 .hl-reveal-arrow.equal  { color: var(--accent);  }
+
+/* ── Player guesses ───────────────────────────────────────────────────────── */
+
+.hl-guesses {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  justify-content: center;
+}
+
+.hl-guess-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 18px;
+  min-width: 110px;
+}
+
+.hl-guess-item.me {
+  border-color: var(--accent);
+}
+
+.hl-guess-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.hl-guess-choice {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.hl-guess-mark {
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.hl-guess-mark.correct { color: var(--success); }
+.hl-guess-mark.wrong   { color: var(--error);   }
 
 /* ── Result actions ───────────────────────────────────────────────────────── */
 
@@ -177,6 +211,10 @@
   gap: 14px;
   width: 100%;
   max-width: 320px;
+}
+
+.btn.ready-waiting {
+  opacity: 0.6;
 }
 
 @media (max-width: 480px) {
@@ -191,5 +229,10 @@
 
   .hl-btn {
     width: 84px;
+  }
+
+  .hl-guess-item {
+    min-width: 90px;
+    padding: 8px 12px;
   }
 }

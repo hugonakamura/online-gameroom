@@ -43,6 +43,7 @@ export interface HighLowState {
   outcome: 'higher' | 'lower' | 'equal' | null;
   multiplier: number;                // 1 normally; doubles on push; resets after scoring
   cardsRemaining: number;            // sanitized deck.length sent to clients
+  readyCount: number;                // how many players have clicked Ready (result phase)
 }
 
 export interface PlayerState {

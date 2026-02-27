@@ -35,7 +35,7 @@ export const coinFlipHandler: GameHandler = {
     });
   },
 
-  onPlayAgain(room: Room): void {
+  onPlayAgain(room: Room, _player: Player): void {
     coinFlipHandler.onGameStart!(room);
     room.gamePhase = 'choosing';
   },

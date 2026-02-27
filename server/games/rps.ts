@@ -53,7 +53,7 @@ export const rpsHandler: GameHandler = {
     // Unused — RPS resolves automatically when both players choose
   },
 
-  onPlayAgain(room: Room): void {
+  onPlayAgain(room: Room, _player: Player): void {
     rpsHandler.onGameStart!(room);
     room.gamePhase = 'choosing';
   },

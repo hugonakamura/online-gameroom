@@ -7,6 +7,7 @@ type RealHighLowChoice = Exclude<HighLowChoice, 'hidden'>;
 /** Server-internal state — extends the shared wire-format with the full deck */
 interface InternalState extends HighLowState {
   deck: Card[];
+  readyVotes: string[]; // player IDs that have clicked Ready; advance when all have voted
 }
 
 const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'] as const;
@@ -41,6 +42,8 @@ export const highLowHandler: GameHandler = {
       outcome: null,
       multiplier: 1,
       cardsRemaining: deck.length,
+      readyCount: 0,
+      readyVotes: [],
     } satisfies InternalState;
   },
 
@@ -91,8 +94,18 @@ export const highLowHandler: GameHandler = {
     // Unused — High/Low resolves automatically when both players choose
   },
 
-  onPlayAgain(room: Room): void {
+  onPlayAgain(room: Room, player: Player): void {
     const state = room.gameState as InternalState;
+
+    // Record this player's ready vote (deduplicate)
+    if (!state.readyVotes.includes(player.id)) {
+      state.readyVotes.push(player.id);
+      state.readyCount = state.readyVotes.length;
+    }
+
+    // Only advance when every player has voted ready
+    if (state.readyVotes.length < room.players.length) return;
+
     const currentCard = state.nextCard!;
     // Carry over multiplier only after a push; reset to 1 after a scoring round
     const multiplier = state.outcome === 'equal' ? state.multiplier : 1;
@@ -116,6 +129,8 @@ export const highLowHandler: GameHandler = {
       outcome: null,
       multiplier,
       cardsRemaining: deck.length,
+      readyCount: 0,
+      readyVotes: [],
     } satisfies InternalState;
 
     room.gamePhase = 'choosing';
@@ -135,6 +150,7 @@ export const highLowHandler: GameHandler = {
       outcome: state.outcome,
       multiplier: state.multiplier,
       cardsRemaining: state.cardsRemaining,
+      readyCount: state.readyVotes.length,
     } satisfies HighLowState;
   },
 };

@@ -54,7 +54,7 @@ export const ticTacToeHandler: GameHandler = {
     // Unused — tic-tac-toe never reaches the 'ready' phase
   },
 
-  onPlayAgain(room: Room): void {
+  onPlayAgain(room: Room, _player: Player): void {
     ticTacToeHandler.onGameStart!(room);
     room.gamePhase = 'choosing';
   },

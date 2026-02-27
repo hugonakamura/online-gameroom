@@ -242,7 +242,9 @@ io.on('connection', (socket) => {
     const room = rooms.get(roomId);
     if (!room || room.gamePhase !== 'result') return;
 
-    gameHandlers[room.gameType].onPlayAgain(room);
+    const player = room.players.find((p) => p.id === socket.id);
+    if (!player) return;
+    gameHandlers[room.gameType].onPlayAgain(room, player);
     broadcastRoomUpdate(room);
   });
 
