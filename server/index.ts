@@ -58,7 +58,12 @@ function broadcastLobby() {
   io.to('lobby').emit('room_list', getLobbyRooms());
 }
 
-function getRoomState(room: Room): RoomState {
+function getRoomState(room: Room, playerIndex?: number): RoomState {
+  const handler = gameHandlers[room.gameType];
+  const gameState =
+    playerIndex !== undefined && handler.sanitizeGameState
+      ? handler.sanitizeGameState(room, playerIndex)
+      : room.gameState;
   return {
     roomId: room.id,
     players: room.players.map((p) => ({
@@ -69,9 +74,21 @@ function getRoomState(room: Room): RoomState {
     })),
     gamePhase: room.gamePhase,
     gameType: room.gameType,
-    gameState: room.gameState,
+    gameState,
     playerCount: room.players.length,
   };
+}
+
+function broadcastRoomUpdate(room: Room): void {
+  const handler = gameHandlers[room.gameType];
+  if (handler.sanitizeGameState) {
+    // Send each player a personalized view with opponent choices hidden
+    room.players.forEach((p, i) => {
+      io.to(p.id).emit('room_update', getRoomState(room, i));
+    });
+  } else {
+    io.to(room.id).emit('room_update', getRoomState(room));
+  }
 }
 
 // ── Socket handlers ────────────────────────────────────────────────────────────
@@ -107,7 +124,7 @@ io.on('connection', (socket) => {
       sessions.set(sessionId, roomId);
       room.players.push({ id: socket.id, sessionId, nickname: cleanNickname, score: 0 });
 
-      io.to(roomId).emit('room_update', getRoomState(room));
+      broadcastRoomUpdate(room);
       broadcastLobby();
       console.log(`[+] ${cleanNickname} created ${roomId} (${safeGameType})`);
     },
@@ -143,7 +160,7 @@ io.on('connection', (socket) => {
             socket.leave('lobby');
             socket.join(existingRoomId);
 
-            io.to(existingRoomId).emit('room_update', getRoomState(existingRoom));
+            broadcastRoomUpdate(existingRoom);
             console.log(`[~] ${existingPlayer.nickname} reconnected to ${existingRoomId}`);
             return;
           }
@@ -185,7 +202,7 @@ io.on('connection', (socket) => {
         room.gamePhase = 'choosing';
       }
 
-      io.to(cleanRoomId).emit('room_update', getRoomState(room));
+      broadcastRoomUpdate(room);
       broadcastLobby();
       console.log(`[+] ${cleanNickname} joined ${cleanRoomId} (${room.players.length}/2)`);
     },
@@ -202,7 +219,7 @@ io.on('connection', (socket) => {
     if (!player) return;
 
     gameHandlers[room.gameType].onGameInput(room, player, payload);
-    io.to(roomId).emit('room_update', getRoomState(room));
+    broadcastRoomUpdate(room);
   });
 
   socket.on('game_action', () => {
@@ -214,7 +231,7 @@ io.on('connection', (socket) => {
 
     const player = room.players.find((p) => p.id === socket.id)!;
     gameHandlers[room.gameType].onGameAction(room, player);
-    io.to(roomId).emit('room_update', getRoomState(room));
+    broadcastRoomUpdate(room);
     console.log(`[~] Room ${roomId}: game_action by ${player.nickname}`);
   });
 
@@ -226,7 +243,7 @@ io.on('connection', (socket) => {
     if (!room || room.gamePhase !== 'result') return;
 
     gameHandlers[room.gameType].onPlayAgain(room);
-    io.to(roomId).emit('room_update', getRoomState(room));
+    broadcastRoomUpdate(room);
   });
 
   socket.on('leave_room', () => {
@@ -254,7 +271,7 @@ io.on('connection', (socket) => {
     } else {
       gameHandlers[room.gameType].onGameStart?.(room);
       room.gamePhase = room.players.length >= 2 ? 'choosing' : 'waiting';
-      io.to(roomId).emit('room_update', getRoomState(room));
+      broadcastRoomUpdate(room);
       console.log(`[-] ${player.nickname} left ${roomId}`);
     }
 
@@ -290,7 +307,7 @@ io.on('connection', (socket) => {
       } else {
         gameHandlers[room.gameType].onGameStart?.(room);
         room.gamePhase = room.players.length >= 2 ? 'choosing' : 'waiting';
-        io.to(roomId).emit('room_update', getRoomState(room));
+        broadcastRoomUpdate(room);
         console.log(`[-] ${player.nickname} timed out, removed from ${roomId}`);
       }
 

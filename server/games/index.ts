@@ -17,6 +17,13 @@ export interface GameHandler {
   onGameAction(room: Room, player: Player): void;
   /** Called when all players want to play another round */
   onPlayAgain(room: Room): void;
+  /**
+   * Optional: return a sanitized copy of gameState for a specific player.
+   * Implement this for games where players must not see each other's choices
+   * before the result is revealed (e.g. RPS). If omitted, the full gameState
+   * is broadcast to all players.
+   */
+  sanitizeGameState?(room: Room, playerIndex: number): unknown;
 }
 
 export const gameHandlers: Record<GameType, GameHandler> = {

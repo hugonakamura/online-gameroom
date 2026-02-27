@@ -55,4 +55,14 @@ export const rpsHandler: GameHandler = {
     rpsHandler.onGameStart!(room);
     room.gamePhase = 'choosing';
   },
+
+  sanitizeGameState(room: Room, playerIndex: number): unknown {
+    const state = room.gameState as RPSState;
+    if (room.gamePhase === 'result') return state;
+    // Hide the opponent's choice until both players have locked in
+    return {
+      ...state,
+      choices: state.choices.map((c, i) => (i === playerIndex ? c : null)),
+    };
+  },
 };
