@@ -49,9 +49,11 @@ export default function RPS({ roomState, socketId, emit }: GameViewProps) {
   };
 
   // Reset local choice when a new round starts
-  if (roomState.gamePhase === 'choosing' && myLocalChoice && !myChoice) {
-    setMyLocalChoice(null);
-  }
+  useEffect(() => {
+    if (roomState.gamePhase === 'choosing') {
+      setMyLocalChoice(null);
+    }
+  }, [roomState.gamePhase]);
 
   const statusMessage = () => {
     if (roomState.gamePhase === 'waiting') return 'Waiting for opponent to join…';
