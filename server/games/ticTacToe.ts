@@ -8,11 +8,25 @@ const WIN_LINES = [
   [0, 4, 8], [2, 4, 6],             // diagonals
 ];
 
-function checkResult(board: (1 | 2 | null)[]): 1 | 2 | 'draw' | null {
-  for (const [a, b, c] of WIN_LINES) {
-    if (board[a] && board[a] === board[b] && board[a] === board[c]) return board[a] as 1 | 2;
+function checkResult(board: (1 | 2 | null)[]): { winner: 1 | 2 | 'draw' | null, winningLine?: number[] } {
+  const winningIndices = new Set<number>();
+  let winner: 1 | 2 | null = null;
+
+  for (const line of WIN_LINES) {
+    const [a, b, c] = line;
+    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+      winner = board[a] as 1 | 2;
+      winningIndices.add(a);
+      winningIndices.add(b);
+      winningIndices.add(c);
+    }
   }
-  return board.every((cell) => cell !== null) ? 'draw' : null;
+
+  if (winner) {
+    return { winner, winningLine: Array.from(winningIndices) };
+  }
+
+  return { winner: board.every((cell) => cell !== null) ? 'draw' : null };
 }
 
 export const ticTacToeHandler: GameHandler = {
@@ -22,7 +36,7 @@ export const ticTacToeHandler: GameHandler = {
   onGameStart(room: Room): void {
     room.gameState = {
       board: Array(9).fill(null),
-      currentTurn: 0,
+      currentTurn: Math.random() < 0.5 ? 0 : 1,
       winner: null,
     } satisfies TicTacToeState;
   },
@@ -41,9 +55,10 @@ export const ticTacToeHandler: GameHandler = {
     state.board[cellIndex] = (playerIndex + 1) as 1 | 2;
 
     const result = checkResult(state.board);
-    if (result) {
-      state.winner = result;
-      if (result !== 'draw') room.players[playerIndex].score += 1;
+    if (result.winner) {
+      state.winner = result.winner;
+      state.winningLine = result.winningLine;
+      if (result.winner !== 'draw') room.players[playerIndex].score += 1;
       room.gamePhase = 'result';
     } else {
       state.currentTurn = state.currentTurn === 0 ? 1 : 0;

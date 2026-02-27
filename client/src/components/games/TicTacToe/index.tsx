@@ -13,10 +13,11 @@ export default function TicTacToe({ roomState, socketId, emit }: GameViewProps) 
     return '';
   };
 
-  const cellClass = (value: 1 | 2 | null) => {
+  const cellClass = (value: 1 | 2 | null, index: number) => {
     const classes = ['ttt-cell'];
     if (value === 1) classes.push('cell-x');
     if (value === 2) classes.push('cell-o');
+    if (state?.winningLine?.includes(index)) classes.push('cell-winner');
     return classes.join(' ');
   };
 
@@ -58,7 +59,7 @@ export default function TicTacToe({ roomState, socketId, emit }: GameViewProps) 
             {state.board.map((cell, i) => (
               <button
                 key={i}
-                className={cellClass(cell)}
+                className={cellClass(cell, i)}
                 disabled={!isMyTurn || cell !== null || roomState.gamePhase !== 'choosing'}
                 onClick={() => emit('game_input', { cellIndex: i })}
               >
@@ -70,14 +71,16 @@ export default function TicTacToe({ roomState, socketId, emit }: GameViewProps) 
       </div>
 
       {/* Actions */}
-      {roomState.gamePhase === 'result' && (
-        <div className="ttt-actions">
-          {resultBanner()}
-          <button className="btn btn-primary" onClick={() => emit('play_again')}>
-            Play Again
-          </button>
-        </div>
-      )}
+      <div className="ttt-actions">
+        {roomState.gamePhase === 'result' && (
+          <>
+            {resultBanner()}
+            <button className="btn btn-primary" onClick={() => emit('play_again')}>
+              Play Again
+            </button>
+          </>
+        )}
+      </div>
     </>
   );
 }

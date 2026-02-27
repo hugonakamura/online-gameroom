@@ -27,10 +27,11 @@ export interface TicTacToeState {
   board: (1 | 2 | null)[];  // 9 cells; 1 = player index 0 (X), 2 = player index 1 (O)
   currentTurn: 0 | 1;        // index into roomState.players
   winner: 1 | 2 | 'draw' | null;
+  winningLine?: number[];
 }
 
 export type Suit = 'hearts' | 'diamonds' | 'clubs' | 'spades';
-export type CardRank = 2|3|4|5|6|7|8|9|10|11|12|13|14;
+export type CardRank = 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14;
 export interface Card { suit: Suit; rank: CardRank; }
 
 /** 'hidden' = opponent has locked in but their choice is not revealed yet */
