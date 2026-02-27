@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import JoinRoom from './components/JoinRoom';
 import GameRoom from './components/GameRoom';
@@ -28,17 +29,30 @@ function clearSession() {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 function App() {
-  const [socket, setSocket]         = useState<Socket | null>(null);
+  const [socket, setSocket]           = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [inRoom, setInRoom]         = useState(false);
-  const [roomId, setRoomId]         = useState('');
-  const [roomState, setRoomState]   = useState<RoomState | null>(null);
-  const [joinError, setJoinError]   = useState<string | null>(null);
-  const [lobbyRooms, setLobbyRooms] = useState<LobbyRoom[]>([]);
+  const [inRoom, setInRoom]           = useState(false);
+  const [roomId, setRoomId]           = useState('');
+  const [roomState, setRoomState]     = useState<RoomState | null>(null);
+  const [joinError, setJoinError]     = useState<string | null>(null);
+  const [lobbyRooms, setLobbyRooms]   = useState<LobbyRoom[]>([]);
+
+  // True while localStorage has session data and we're waiting for room_update.
+  // Prevents a flash of the lobby during reconnection after a page refresh.
+  const [isRejoining, setIsRejoining] = useState(() =>
+    !!(localStorage.getItem('flip_socket_room') && localStorage.getItem('flip_socket_nickname'))
+  );
+
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Ref so socket event callbacks can read the latest "in room" state without
   // needing to be re-registered when it changes.
   const inRoomRef = useRef(false);
+
+  // Ref so the socket effect (runs once) can always read the current pathname.
+  const pathnameRef = useRef(location.pathname);
+  useEffect(() => { pathnameRef.current = location.pathname; }, [location.pathname]);
 
   useEffect(() => {
     const sessionId = getSessionId();
@@ -74,6 +88,11 @@ function App() {
       setInRoom(true);
       inRoomRef.current = true;
       setJoinError(null);
+      setIsRejoining(false);
+      // Navigate to the room URL; only push a new history entry if we're not
+      // already there (i.e. avoid a duplicate entry on reconnect/refresh).
+      const target = `/room/${state.roomId}`;
+      if (pathnameRef.current !== target) navigate(target);
     });
 
     s.on('room_list', (rooms: LobbyRoom[]) => {
@@ -88,10 +107,23 @@ function App() {
       setInRoom(false);
       inRoomRef.current = false;
       setRoomState(null);
+      setIsRejoining(false);
     });
 
     return () => { s.disconnect(); };
-  }, []);
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Back-button detection: if the URL becomes '/' while we're still in a room,
+  // clean up socket state so the lobby renders correctly.
+  useEffect(() => {
+    if (location.pathname === '/' && inRoom) {
+      socket?.emit('leave_room');
+      clearSession();
+      setInRoom(false);
+      inRoomRef.current = false;
+      setRoomState(null);
+    }
+  }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleJoin = useCallback(
     (rid: string, nick: string, gameType: GameType) => {
@@ -117,37 +149,42 @@ function App() {
     setInRoom(false);
     inRoomRef.current = false;
     setRoomState(null);
-  }, [socket]);
+    navigate('/');
+  }, [socket, navigate]);
 
-  if (!isConnected) {
+  if (!isConnected || isRejoining) {
     return (
       <div className="loading-screen">
         <div className="spinner" />
-        <p>{inRoom ? 'Reconnecting…' : 'Connecting to server…'}</p>
+        <p>{inRoom || isRejoining ? 'Reconnecting…' : 'Connecting to server…'}</p>
       </div>
     );
   }
 
-  if (!inRoom || !roomState) {
-    return (
-      <JoinRoom
-        onJoin={handleJoin}
-        onCreate={handleCreate}
-        error={joinError}
-        lobbyRooms={lobbyRooms}
-        initialNickname={localStorage.getItem('flip_socket_nickname') ?? ''}
-      />
-    );
-  }
-
   return (
-    <GameRoom
-      roomId={roomId}
-      socketId={socket?.id ?? ''}
-      roomState={roomState}
-      emit={(event, payload) => socket?.emit(event, payload)}
-      onLeave={handleLeave}
-    />
+    <Routes>
+      <Route path="/" element={
+        <JoinRoom
+          onJoin={handleJoin}
+          onCreate={handleCreate}
+          error={joinError}
+          lobbyRooms={lobbyRooms}
+          initialNickname={localStorage.getItem('flip_socket_nickname') ?? ''}
+        />
+      } />
+      <Route path="/room/:roomId" element={
+        inRoom && roomState
+          ? <GameRoom
+              roomId={roomId}
+              socketId={socket?.id ?? ''}
+              roomState={roomState}
+              emit={(event, payload) => socket?.emit(event, payload)}
+              onLeave={handleLeave}
+            />
+          : <Navigate to="/" replace />
+      } />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
 
