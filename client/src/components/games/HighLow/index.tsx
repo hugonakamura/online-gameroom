@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardRank, HighLowChoice, HighLowState, Suit } from '../../../types';
 import { GameViewProps } from '../types';
 import './HighLow.css';
@@ -24,12 +24,12 @@ function suitColor(suit: Suit): 'red' | 'black' {
   return suit === 'hearts' || suit === 'diamonds' ? 'red' : 'black';
 }
 
-function PlayingCard({ card }: { card: Card }) {
+function PlayingCard({ card, revealed }: { card: Card; revealed?: boolean }) {
   const rank = rankLabel(card.rank);
   const suit = suitSymbol(card.suit);
   const color = suitColor(card.suit);
   return (
-    <div className={`hl-card ${color}`}>
+    <div className={`hl-card ${color}${revealed ? ' hl-card-revealed' : ''}`}>
       <span className="hl-card-corner top">{rank}<br />{suit}</span>
       <span className="hl-card-suit">{suit}</span>
       <span className="hl-card-corner bottom">{rank}<br />{suit}</span>
@@ -37,9 +37,26 @@ function PlayingCard({ card }: { card: Card }) {
   );
 }
 
+function CardBack() {
+  return <div className="hl-card-back" />;
+}
+
 export default function HighLow({ roomState, socketId, emit }: GameViewProps) {
   const [myLocalChoice, setMyLocalChoice] = useState<HighLowChoice | null>(null);
   const [myReady, setMyReady] = useState(false);
+  const [isRevealing, setIsRevealing] = useState(false);
+  const prevPhaseRef = useRef(roomState.gamePhase);
+
+  // Trigger the reveal animation only when transitioning into 'result'
+  useEffect(() => {
+    if (prevPhaseRef.current !== 'result' && roomState.gamePhase === 'result') {
+      setIsRevealing(true);
+      const timer = setTimeout(() => setIsRevealing(false), 1500);
+      prevPhaseRef.current = roomState.gamePhase;
+      return () => clearTimeout(timer);
+    }
+    prevPhaseRef.current = roomState.gamePhase;
+  }, [roomState.gamePhase]);
 
   const state = roomState.gameState as HighLowState | undefined;
   const myIndex = roomState.players.findIndex((p) => p.id === socketId);
@@ -148,41 +165,50 @@ export default function HighLow({ roomState, socketId, emit }: GameViewProps) {
                 <span className="hl-reveal-label">Was</span>
                 <PlayingCard card={state.currentCard} />
               </div>
-              <div className={`hl-reveal-arrow ${outcomeArrowClass}`}>{outcomeArrowChar}</div>
+              {isRevealing ? (
+                <div className="hl-reveal-arrow hl-reveal-arrow-suspense">?</div>
+              ) : (
+                <div className={`hl-reveal-arrow ${outcomeArrowClass}`}>{outcomeArrowChar}</div>
+              )}
               <div className="hl-reveal-card">
                 <span className="hl-reveal-label">Drawn</span>
-                <PlayingCard card={state.nextCard} />
+                {isRevealing
+                  ? <CardBack />
+                  : <PlayingCard card={state.nextCard} revealed />
+                }
               </div>
             </div>
 
-            {/* Player guesses */}
-            <div className="hl-guesses">
-              {roomState.players.map((player, i) => {
-                const choice = state.choices[i];
-                const isCorrect = !isPush && choice !== null && choice === outcome;
-                const isWrong = !isPush && choice !== null && choice !== outcome;
-                const isMe = player.id === socketId;
-                return (
-                  <div key={player.id} className={`hl-guess-item${isMe ? ' me' : ''}`}>
-                    <span className="hl-guess-name">{player.nickname}{isMe ? ' (you)' : ''}</span>
-                    <span className="hl-guess-choice">
-                      {choice === 'higher' ? '↑ Higher' : choice === 'lower' ? '↓ Lower' : '—'}
-                    </span>
-                    {!isPush && (
-                      <span className={`hl-guess-mark ${isCorrect ? 'correct' : isWrong ? 'wrong' : ''}`}>
-                        {isCorrect ? '✓' : isWrong ? '✗' : ''}
+            {/* Player guesses — hidden until card is revealed */}
+            {!isRevealing && (
+              <div className="hl-guesses">
+                {roomState.players.map((player, i) => {
+                  const choice = state.choices[i];
+                  const isCorrect = !isPush && choice !== null && choice === outcome;
+                  const isWrong = !isPush && choice !== null && choice !== outcome;
+                  const isMe = player.id === socketId;
+                  return (
+                    <div key={player.id} className={`hl-guess-item${isMe ? ' me' : ''}`}>
+                      <span className="hl-guess-name">{player.nickname}{isMe ? ' (you)' : ''}</span>
+                      <span className="hl-guess-choice">
+                        {choice === 'higher' ? '↑ Higher' : choice === 'lower' ? '↓ Lower' : '—'}
                       </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                      {!isPush && (
+                        <span className={`hl-guess-mark ${isCorrect ? 'correct' : isWrong ? 'wrong' : ''}`}>
+                          {isCorrect ? '✓' : isWrong ? '✗' : ''}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
       </div>
 
-      {/* Result actions */}
-      {roomState.gamePhase === 'result' && state && (
+      {/* Result actions — hidden until card is revealed */}
+      {roomState.gamePhase === 'result' && state && !isRevealing && (
         <div className="hl-actions">
           {isPush && (
             <div className="hl-multiplier">⚡ Next round worth {state.multiplier}×!</div>

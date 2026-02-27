@@ -123,6 +123,62 @@
   opacity: 1;
 }
 
+/* ── Card back (suspense reveal) ──────────────────────────────────────────── */
+
+@keyframes hl-card-float {
+  0%, 100% { transform: translateY(0)    rotate(-1deg); }
+  50%      { transform: translateY(-8px) rotate(1deg);  }
+}
+
+@keyframes hl-card-flip-in {
+  from { transform: rotateY(90deg) scale(0.85); opacity: 0; }
+  to   { transform: rotateY(0deg)  scale(1);    opacity: 1; }
+}
+
+@keyframes hl-suspense-pulse {
+  0%, 100% { opacity: 0.25; transform: scale(0.9); }
+  50%      { opacity: 0.8;  transform: scale(1.2); }
+}
+
+.hl-card-back {
+  position: relative;
+  width: 90px;
+  height: 130px;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  flex-shrink: 0;
+  overflow: hidden;
+  background: #1e3a7e;
+  animation: hl-card-float 1s ease-in-out infinite;
+}
+
+.hl-card-back::before {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border-radius: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.04),
+    rgba(255, 255, 255, 0.04) 3px,
+    transparent 3px,
+    transparent 12px
+  );
+}
+
+.hl-card-revealed {
+  animation: hl-card-flip-in 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hl-reveal-arrow-suspense {
+  font-size: 2.2rem;
+  font-weight: 800;
+  padding-bottom: 42px; /* align with card center, same as .hl-reveal-arrow */
+  color: var(--text-muted);
+  animation: hl-suspense-pulse 0.7s ease-in-out infinite;
+}
+
 /* ── Result reveal ────────────────────────────────────────────────────────── */
 
 .hl-reveal {
@@ -218,7 +274,8 @@
 }
 
 @media (max-width: 480px) {
-  .hl-card {
+  .hl-card,
+  .hl-card-back {
     width: 76px;
     height: 110px;
   }

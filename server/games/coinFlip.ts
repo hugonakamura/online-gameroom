@@ -4,7 +4,7 @@ import type { GameHandler } from './index';
 
 export const coinFlipHandler: GameHandler = {
   roomIdPrefix: 'FLIP',
-  minPlayers: 1,
+  minPlayers: 2,
 
   onGameStart(room: Room): void {
     room.players.forEach((p) => { p.hasActed = false; });
