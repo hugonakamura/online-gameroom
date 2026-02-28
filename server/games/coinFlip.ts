@@ -20,6 +20,7 @@ export const coinFlipHandler: GameHandler = {
     if (choice !== 'heads' && choice !== 'tails') return;
 
     const idx = room.players.findIndex((p) => p.id === player.id);
+    if (idx === -1) return;
     state.choices[idx] = choice;
     player.hasActed = true;
 

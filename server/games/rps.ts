@@ -29,6 +29,7 @@ export const rpsHandler: GameHandler = {
     if (!Object.keys(BEATS).includes(choice)) return;
 
     const idx = room.players.findIndex((p) => p.id === player.id);
+    if (idx === -1) return;
     if (state.choices[idx] !== null) return; // already locked in
 
     state.choices[idx] = choice;

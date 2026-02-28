@@ -48,6 +48,7 @@ export const ticTacToeHandler: GameHandler = {
 
     const { cellIndex } = payload as { cellIndex: number };
     const playerIndex = room.players.findIndex((p) => p.id === player.id);
+    if (playerIndex === -1) return;
 
     if (playerIndex !== state.currentTurn) return;           // not your turn
     if (cellIndex < 0 || cellIndex > 8) return;

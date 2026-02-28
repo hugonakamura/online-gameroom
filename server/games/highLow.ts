@@ -54,6 +54,7 @@ export const highLowHandler: GameHandler = {
     if (choice !== 'higher' && choice !== 'lower') return; // reject 'hidden'
 
     const idx = room.players.findIndex((p) => p.id === player.id);
+    if (idx === -1) return;
     if (state.choices[idx] !== null) return; // already chosen
 
     state.choices[idx] = choice;
