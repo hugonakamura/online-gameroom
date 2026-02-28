@@ -4,6 +4,7 @@ import type { GameHandler } from './index';
 
 export const coinFlipHandler: GameHandler = {
   roomIdPrefix: 'FLIP',
+  label: '🪙 Coin Flip',
   minPlayers: 2,
 
   onGameStart(room: Room): void {

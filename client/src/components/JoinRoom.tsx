@@ -1,5 +1,5 @@
 import { useState, FormEvent, useRef } from 'react';
-import { LobbyRoom, GameType } from '../types';
+import { LobbyRoom, GameType, GameOption } from '../types';
 
 interface Props {
   onJoin: (roomId: string, nickname: string, gameType: GameType) => void;
@@ -7,17 +7,11 @@ interface Props {
   onSpectate: (roomId: string, nickname: string) => void;
   error: string | null;
   lobbyRooms: LobbyRoom[];
+  gameOptions: GameOption[];
   initialNickname: string;
 }
 
-const GAME_OPTIONS: { value: GameType; label: string }[] = [
-  { value: 'coin_flip', label: '🪙 Coin Flip' },
-  { value: 'tictactoe', label: '✕ Tic-Tac-Toe' },
-  { value: 'rps',       label: '✊ Rock Paper Scissors' },
-  { value: 'highlow',   label: '🃏 High / Low' },
-];
-
-export default function JoinRoom({ onJoin, onCreate, onSpectate, error, lobbyRooms, initialNickname }: Props) {
+export default function JoinRoom({ onJoin, onCreate, onSpectate, error, lobbyRooms, gameOptions, initialNickname }: Props) {
   const [nickname, setNickname] = useState(initialNickname);
   const [gameType, setGameType] = useState<GameType>('coin_flip');
   const nicknameRef = useRef<HTMLInputElement>(null);
@@ -76,7 +70,7 @@ export default function JoinRoom({ onJoin, onCreate, onSpectate, error, lobbyRoo
               value={gameType}
               onChange={(e) => setGameType(e.target.value as GameType)}
             >
-              {GAME_OPTIONS.map((opt) => (
+              {gameOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
@@ -101,7 +95,7 @@ export default function JoinRoom({ onJoin, onCreate, onSpectate, error, lobbyRoo
                 <div className="lobby-room-info">
                   <span className="lobby-room-id">
                     {room.id}
-                    <span className="lobby-room-game">{GAME_OPTIONS.find((o) => o.value === room.gameType)?.label}</span>
+                    <span className="lobby-room-game">{gameOptions.find((o) => o.value === room.gameType)?.label}</span>
                     {room.spectatorCount > 0 && (
                       <span className="lobby-spectator-count">👁 {room.spectatorCount}</span>
                     )}

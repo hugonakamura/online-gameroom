@@ -4,7 +4,7 @@ import { Server } from 'socket.io';
 import path from 'path';
 import { GameType, RoomState, LobbyRoom } from '../shared/types';
 import { Room } from './types';
-import { gameHandlers } from './games/index';
+import { gameHandlers, getGameOptions } from './games/index';
 
 const app = express();
 const httpServer = createServer(app);
@@ -153,6 +153,7 @@ io.on('connection', (socket) => {
 
   // New connections go to the lobby and immediately get the current room list.
   socket.join('lobby');
+  socket.emit('game_options', getGameOptions());
   socket.emit('room_list', getLobbyRooms());
 
   socket.on(

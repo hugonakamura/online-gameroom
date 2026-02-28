@@ -1,4 +1,4 @@
-import { GameType } from '../../shared/types';
+import { GameType, GameOption } from '../../shared/types';
 import { Player, Room } from '../types';
 import { coinFlipHandler } from './coinFlip';
 import { ticTacToeHandler } from './ticTacToe';
@@ -8,6 +8,8 @@ import { highLowHandler } from './highLow';
 export interface GameHandler {
   /** Prefix used when auto-generating room IDs (e.g. 'FLIP' → 'FLIP-A3K9M') */
   roomIdPrefix: string;
+  /** Human-readable label shown in the lobby and in-room game switcher */
+  label: string;
   /** Maximum number of players allowed in the room (undefined = no limit) */
   maxPlayers?: number;
   /** Minimum number of players required before a round starts (defaults to 2) */
@@ -35,3 +37,12 @@ export const gameHandlers: Record<GameType, GameHandler> = {
   rps: rpsHandler,
   highlow: highLowHandler,
 };
+
+/** Returns the ordered list of available games for the client UI. */
+export function getGameOptions(): GameOption[] {
+  return (Object.entries(gameHandlers) as [GameType, GameHandler][]).map(([value, handler]) => ({
+    value,
+    label: handler.label,
+    ...(handler.maxPlayers !== undefined ? { maxPlayers: handler.maxPlayers } : {}),
+  }));
+}

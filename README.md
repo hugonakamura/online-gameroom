@@ -14,11 +14,13 @@ Player C ──┘
 
 ## Features
 
-- **Multiple games** — Coin Flip (any players), Tic-Tac-Toe (2 players), Rock Paper Scissors (2 players), High / Low card game (2 players)
+- **Multiple games** — Coin Flip (any players), Tic-Tac-Toe (2 players), Rock Paper Scissors (2 players), High / Low card game (up to 8 players)
+- **Host system** — the room creator is the Host (👑); if the host leaves, the role transfers to the oldest remaining person
+- **In-room game switching** — the host can switch the game type mid-room; if the new game has a lower player cap, excess players (newest joiners) are moved to spectator automatically
 - **Auto-generated room IDs** — create a room with one click; no manual ID needed
 - **Open rooms lobby** — the join screen lists all active rooms in real time; click Join to enter
-- **Game type selection** — the room creator picks the game mode; joiners use the host's setting
 - **Score tracking** — points accumulate across rounds; the room keeps score for the session
+- **Spectator mode** — join any room as a spectator, or step down from playing mid-session
 - **Persistent nickname** — your display name is remembered when you leave and rejoin
 - **Reconnection handling** — a 10-second grace period restores your slot if you lose connection
 - **URL routing** — each room has its own URL (`/room/FLIP-XXXXX`); browser back button returns to the lobby
@@ -45,8 +47,8 @@ flip-socket/
 │                                 #    RpsState, HighLowState, Card, PlayerState, RoomState, LobbyRoom)
 │
 ├── server/
-│   ├── index.ts                  # Express + Socket.io, room management, lobby (platform only)
-│   ├── types.ts                  # Server-internal Player and Room interfaces
+│   ├── index.ts                  # Express + Socket.io, room management, lobby, host logic (platform only)
+│   ├── types.ts                  # Server-internal Player and Room interfaces (includes hostSessionId)
 │   └── games/
 │       ├── index.ts              # GameHandler interface + registry (Record<GameType, GameHandler>)
 │       ├── coinFlip.ts           # Coin flip: roomIdPrefix, onGameStart, onGameInput, onGameAction, onPlayAgain
@@ -58,10 +60,10 @@ flip-socket/
     ├── src/
     │   ├── App.tsx               # Socket connection, session persistence, room state, React Router routes
     │   ├── types.ts              # Re-exports from ../../shared/types
-    │   ├── index.css             # Generic styles (layout, players, lobby, buttons)
+    │   ├── index.css             # Generic styles (layout, players, lobby, buttons, host badge, game switcher)
     │   └── components/
     │       ├── JoinRoom.tsx      # Create room + lobby list + GAME_OPTIONS
-    │       ├── GameRoom.tsx      # Generic shell: header, player cards, game component router
+    │       ├── GameRoom.tsx      # Generic shell: header (with host game-switcher), player cards, game router
     │       └── games/
     │           ├── types.ts      # GameViewProps interface
     │           ├── index.ts      # gameViews registry (Record<GameType, ComponentType>); each entry is React.lazy()
@@ -82,7 +84,7 @@ flip-socket/
 
 ## Adding a new game
 
-Adding a game means editing **exactly 4 files** and creating **2–3 new files**. Nothing in the platform layer (`server/index.ts`, `GameRoom.tsx`, `App.tsx`) needs to change.
+Adding a game means editing **exactly 5 files** and creating **2–3 new files**. Nothing in the platform layer (`server/index.ts`, `App.tsx`) needs to change.
 
 The example below adds a hypothetical dice game.
 
@@ -94,6 +96,7 @@ The example below adds a hypothetical dice game.
 | `server/games/index.ts` | `import { diceHandler } from './dice'` + `dice: diceHandler` in the registry |
 | `client/src/components/games/index.ts` | `dice: lazy(() => import('./Dice'))` in the registry |
 | `client/src/components/JoinRoom.tsx` | `{ value: 'dice', label: '🎲 Dice' }` in the `GAME_OPTIONS` array |
+| `client/src/components/GameRoom.tsx` | `{ value: 'dice', label: '🎲 Dice', maxPlayers: N }` in the `GAME_OPTIONS` array (used by the host game-switcher and overflow warning) |
 
 ### Files to create
 
@@ -109,12 +112,13 @@ The example below adds a hypothetical dice game.
 // server/games/index.ts
 interface GameHandler {
   roomIdPrefix: string;                              // room ID prefix, e.g. 'DICE' → room IDs like 'DICE-A1B2C'
-  maxPlayers?: number;                               // cap enforced on join; omit for no limit
+  maxPlayers?: number;                               // cap enforced on join and on game switch; omit for no limit
+  minPlayers?: number;                               // players needed to start a round (defaults to 2)
   onGameStart?(room: Room): void;                    // initialize gameState; called on first join and after any player leaves
   onGameInput(room: Room, player: Player, payload: unknown): void; // player sent game_input
   onGameAction(room: Room, player: Player): void;    // player sent game_action (e.g. "flip the coin")
   onPlayAgain(room: Room, player: Player): void;     // a player confirmed ready for next round
-  sanitizeGameState?(state: unknown): unknown;       // strip server-only fields before broadcasting
+  sanitizeGameState?(room: Room, playerId: string): unknown; // strip or mask fields before broadcasting (e.g. hide opponent choices)
 }
 ```
 
@@ -124,7 +128,7 @@ Key rules:
 - The only per-player platform field game handlers may use is `player.hasActed` (set it in `onGameInput`; clear it in `onGameStart`).
 - `roomIdPrefix` is the only field that drives room ID generation — `server/index.ts` reads it from the handler automatically.
 - `onPlayAgain` is called once per player confirmation — track a ready-vote set inside `gameState` if all players must confirm before the next round starts.
-- Use `sanitizeGameState` to strip server-only fields (e.g. the full deck, pending vote lists) before the state is sent to clients.
+- Use `sanitizeGameState` to strip server-only fields (e.g. the full deck, pending vote lists) or mask opponent choices before the state is sent to clients.
 
 ## Running locally
 
@@ -180,6 +184,18 @@ Steps:
 3. Connect your repository — Render will detect `render.yaml` automatically
 4. Deploy
 
+## Host system
+
+The first player to create a room becomes the **Host** (marked with 👑 throughout the UI). The host has one extra power: they can switch the game type for the room at any time using the dropdown in the header.
+
+**Game switching behaviour:**
+- If the new game's player cap is lower than the current player count, the newest players are moved to spectator automatically. A warning shows the exact count before confirming.
+- If the new game fits all current players, everyone stays and the round resets immediately.
+- The host stays the host even if they click Spectate — they keep the 👑 and the switcher.
+
+**Host transfer:**
+The host role passes to the oldest remaining person in the room whenever the current host permanently leaves (Leave button or disconnect timeout). Stepping down to spectator does not transfer the role.
+
 ## Game flows
 
 **Coin Flip** (any number of players):
@@ -210,14 +226,14 @@ waiting ──► choosing ──► result
 2. **Choosing** — both players pick simultaneously; neither sees the other's choice until both have locked in
 3. **Result** — choices revealed side by side; winner earns a point; Play Again resets
 
-**High / Low** (exactly 2 players):
+**High / Low** (up to 8 players):
 ```
 waiting ──► choosing ──► result
             (Higher/Lower)  (both ready?)
 ```
 1. **Waiting** — room created; waiting for second player
-2. **Choosing** — a card is shown face-up; both players simultaneously guess whether the next card will be Higher or Lower
-3. **Result** — next card revealed; correct guessers earn a point; if both guesses are wrong or both right, either player can still earn; if ranks are equal it's a push and the next round's points double (multiplier stacks); both players must click Ready to advance
+2. **Choosing** — a card is shown face-up; all players simultaneously guess whether the next card will be Higher or Lower
+3. **Result** — next card revealed; correct guessers earn a point; if all guesses are wrong or all right, points are still awarded; if ranks are equal it's a push and the next round's points double (multiplier stacks); all players must click Ready to advance
 4. **Deck** — a standard 52-card deck is shared across rounds; it auto-reshuffles when exhausted
 
 ## Socket events
@@ -229,7 +245,8 @@ waiting ──► choosing ──► result
 | C→S | `game_input` | game-specific (e.g. `{ choice }` or `{ cellIndex }`) |
 | C→S | `game_action` | — |
 | C→S | `play_again` | — |
+| C→S | `change_game` | `{ gameType }` (host only) |
 | C→S | `leave_room` | — |
-| S→C | `room_update` | `RoomState` (includes `roomId`, `gameState`) |
+| S→C | `room_update` | `RoomState` (includes `roomId`, `hostId`, `maxPlayers`, `gameState`) |
 | S→C | `room_list` | `LobbyRoom[]` |
 | S→C | `join_error` | `{ message }` |

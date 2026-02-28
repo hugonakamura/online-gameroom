@@ -12,6 +12,7 @@ const BEATS: Record<RealRPSChoice, RealRPSChoice> = {
 
 export const rpsHandler: GameHandler = {
   roomIdPrefix: 'RPS',
+  label: '✊ Rock Paper Scissors',
   maxPlayers: 2,
 
   onGameStart(room: Room): void {

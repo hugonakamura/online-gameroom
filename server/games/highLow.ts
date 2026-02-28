@@ -28,6 +28,7 @@ function shuffle<T>(arr: T[]): T[] {
 
 export const highLowHandler: GameHandler = {
   roomIdPrefix: 'HL',
+  label: '🃏 High / Low',
   maxPlayers: 8,
 
   onGameStart(room: Room): void {

@@ -1,23 +1,15 @@
 import { Suspense, useState, useEffect } from 'react';
-import { RoomState, GamePhase, GameType, PlayerState, SpectatorState } from '../types';
+import { RoomState, GamePhase, GameType, GameOption, PlayerState, SpectatorState } from '../types';
 import { gameViews, gameConfigs } from './games';
 
 interface Props {
   roomId: string;
   socketId: string;
   roomState: RoomState;
+  gameOptions: GameOption[];
   emit: (event: string, payload?: unknown) => void;
   onLeave: () => void;
 }
-
-// ── Sub-components ─────────────────────────────────────────────────────────────
-
-const GAME_OPTIONS: { value: GameType; label: string; maxPlayers?: number }[] = [
-  { value: 'coin_flip', label: '🪙 Coin Flip' },
-  { value: 'tictactoe', label: '✕ Tic-Tac-Toe',          maxPlayers: 2 },
-  { value: 'rps',       label: '✊ Rock Paper Scissors', maxPlayers: 2 },
-  { value: 'highlow',   label: '🃏 High / Low',          maxPlayers: 8 },
-];
 
 function PlayerCard({
   player,
@@ -91,7 +83,7 @@ function SpectatorStrip({ spectators, socketId, hostId }: { spectators: Spectato
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 
-export default function GameRoom({ roomId, socketId, roomState, emit, onLeave }: Props) {
+export default function GameRoom({ roomId, socketId, roomState, gameOptions, emit, onLeave }: Props) {
   const GameView = gameViews[roomState.gameType];
   const isSpectator = roomState.spectators.some((s) => s.id === socketId);
   const isHost = roomState.hostId === socketId;
@@ -121,14 +113,14 @@ export default function GameRoom({ roomId, socketId, roomState, emit, onLeave }:
                     setPendingGame(g === roomState.gameType ? null : g);
                   }}
                 >
-                  {GAME_OPTIONS.map((opt) => (
+                  {gameOptions.map((opt) => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
                 {pendingGame && (
                   <>
                     {(() => {
-                      const opt = GAME_OPTIONS.find((o) => o.value === pendingGame);
+                      const opt = gameOptions.find((o) => o.value === pendingGame);
                       const overflow = opt?.maxPlayers !== undefined
                         ? Math.max(0, roomState.playerCount - opt.maxPlayers)
                         : 0;

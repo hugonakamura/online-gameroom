@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-
 import { io, Socket } from 'socket.io-client';
 import JoinRoom from './components/JoinRoom';
 import GameRoom from './components/GameRoom';
-import { RoomState, LobbyRoom, GameType } from './types';
+import { RoomState, LobbyRoom, GameType, GameOption } from './types';
 
 // ── Persistent session identity ────────────────────────────────────────────────
 // A UUID stored in localStorage that survives page refreshes and socket
@@ -37,6 +37,7 @@ function App() {
   const [roomState, setRoomState]     = useState<RoomState | null>(null);
   const [joinError, setJoinError]     = useState<string | null>(null);
   const [lobbyRooms, setLobbyRooms]   = useState<LobbyRoom[]>([]);
+  const [gameOptions, setGameOptions] = useState<GameOption[]>([]);
 
   // True while localStorage has session data and we're waiting for room_update.
   // Prevents a flash of the lobby during reconnection after a page refresh.
@@ -95,6 +96,10 @@ function App() {
       // already there (i.e. avoid a duplicate entry on reconnect/refresh).
       const target = `/room/${state.roomId}`;
       if (pathnameRef.current !== target) navigate(target);
+    });
+
+    s.on('game_options', (options: GameOption[]) => {
+      setGameOptions(options);
     });
 
     s.on('room_list', (rooms: LobbyRoom[]) => {
@@ -182,6 +187,7 @@ function App() {
           onSpectate={handleSpectate}
           error={joinError}
           lobbyRooms={lobbyRooms}
+          gameOptions={gameOptions}
           initialNickname={localStorage.getItem('flip_socket_nickname') ?? ''}
         />
       } />
@@ -191,6 +197,7 @@ function App() {
               roomId={roomId}
               socketId={socket?.id ?? ''}
               roomState={roomState}
+              gameOptions={gameOptions}
               emit={(event, payload) => socket?.emit(event, payload)}
               onLeave={handleLeave}
             />

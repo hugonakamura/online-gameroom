@@ -47,6 +47,12 @@ export interface HighLowState {
   readyCount: number;                // how many players have clicked Ready (result phase)
 }
 
+export interface GameOption {
+  value: GameType;
+  label: string;
+  maxPlayers?: number;
+}
+
 export interface PlayerState {
   id: string;
   nickname: string;
