@@ -16,4 +16,5 @@ export interface Room {
   gamePhase: GamePhase;
   gameType: GameType;
   gameState?: unknown;
+  hostSessionId: string; // sessionId of current host; may be in players or spectators
 }

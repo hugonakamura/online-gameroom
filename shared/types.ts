@@ -61,6 +61,8 @@ export interface SpectatorState {
 
 export interface RoomState {
   roomId: string;
+  hostId: string;        // current socket.id of the host (may be a player or spectator)
+  maxPlayers?: number;   // max players for the current game (undefined = unlimited)
   players: PlayerState[];
   spectators: SpectatorState[];
   spectatorCount: number;

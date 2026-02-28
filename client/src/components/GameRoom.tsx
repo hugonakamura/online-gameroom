@@ -1,5 +1,5 @@
 import { Suspense, useState, useEffect } from 'react';
-import { RoomState, GamePhase, PlayerState, SpectatorState } from '../types';
+import { RoomState, GamePhase, GameType, PlayerState, SpectatorState } from '../types';
 import { gameViews, gameConfigs } from './games';
 
 interface Props {
@@ -12,14 +12,23 @@ interface Props {
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
+const GAME_OPTIONS: { value: GameType; label: string; maxPlayers?: number }[] = [
+  { value: 'coin_flip', label: '🪙 Coin Flip' },
+  { value: 'tictactoe', label: '✕ Tic-Tac-Toe',          maxPlayers: 2 },
+  { value: 'rps',       label: '✊ Rock Paper Scissors', maxPlayers: 2 },
+  { value: 'highlow',   label: '🃏 High / Low',          maxPlayers: 8 },
+];
+
 function PlayerCard({
   player,
   isMe,
+  isHost,
   gamePhase,
   scoreDelayMs,
 }: {
   player: PlayerState;
   isMe: boolean;
+  isHost: boolean;
   gamePhase: GamePhase;
   scoreDelayMs: number;
 }) {
@@ -50,6 +59,7 @@ function PlayerCard({
         <span className="player-name">
           {player.nickname}
           {isMe && <span className="you-badge"> (you)</span>}
+          {isHost && <span className="host-badge">👑</span>}
         </span>
         <span className={`player-status${player.hasChosen ? ' status-ready' : ''}`}>
           {statusText()}
@@ -63,7 +73,7 @@ function PlayerCard({
   );
 }
 
-function SpectatorStrip({ spectators, socketId }: { spectators: SpectatorState[]; socketId: string }) {
+function SpectatorStrip({ spectators, socketId, hostId }: { spectators: SpectatorState[]; socketId: string; hostId: string }) {
   if (spectators.length === 0) return null;
   return (
     <div className="spectators-strip">
@@ -71,6 +81,7 @@ function SpectatorStrip({ spectators, socketId }: { spectators: SpectatorState[]
       <span className="spectators-label">Watching:</span>
       {spectators.map((s, i) => (
         <span key={s.id} className={`spectator-name${s.id === socketId ? ' spectator-me' : ''}`}>
+          {s.id === hostId && <span className="host-badge">👑</span>}
           {s.nickname}{s.id === socketId ? ' (you)' : ''}{i < spectators.length - 1 ? ',' : ''}
         </span>
       ))}
@@ -83,6 +94,10 @@ function SpectatorStrip({ spectators, socketId }: { spectators: SpectatorState[]
 export default function GameRoom({ roomId, socketId, roomState, emit, onLeave }: Props) {
   const GameView = gameViews[roomState.gameType];
   const isSpectator = roomState.spectators.some((s) => s.id === socketId);
+  const isHost = roomState.hostId === socketId;
+
+  const [pendingGame, setPendingGame] = useState<GameType | null>(null);
+  useEffect(() => { setPendingGame(null); }, [roomState.gameType]);
 
   return (
     <div className="game-screen">
@@ -97,6 +112,40 @@ export default function GameRoom({ roomId, socketId, roomState, emit, onLeave }:
             {roomState.playerCount} {roomState.playerCount === 1 ? 'player' : 'players'}
           </div>
           <div className="header-actions">
+            {isHost && (
+              <div className="game-switcher">
+                <select
+                  value={pendingGame ?? roomState.gameType}
+                  onChange={(e) => {
+                    const g = e.target.value as GameType;
+                    setPendingGame(g === roomState.gameType ? null : g);
+                  }}
+                >
+                  {GAME_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+                {pendingGame && (
+                  <>
+                    {(() => {
+                      const opt = GAME_OPTIONS.find((o) => o.value === pendingGame);
+                      const overflow = opt?.maxPlayers !== undefined
+                        ? Math.max(0, roomState.playerCount - opt.maxPlayers)
+                        : 0;
+                      return overflow > 0
+                        ? <span className="game-switch-warning">⚠ {overflow} player{overflow > 1 ? 's' : ''} will become spectator{overflow > 1 ? 's' : ''}</span>
+                        : null;
+                    })()}
+                    <button
+                      className="btn-change-game"
+                      onClick={() => { emit('change_game', { gameType: pendingGame }); setPendingGame(null); }}
+                    >
+                      Change
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
             {!isSpectator && (
               <button className="btn-spectate" onClick={() => emit('become_spectator')}>
                 Spectate
@@ -110,7 +159,7 @@ export default function GameRoom({ roomId, socketId, roomState, emit, onLeave }:
             <button className="btn-leave" onClick={onLeave}>Leave</button>
           </div>
         </div>
-        <SpectatorStrip spectators={roomState.spectators} socketId={socketId} />
+        <SpectatorStrip spectators={roomState.spectators} socketId={socketId} hostId={roomState.hostId} />
       </header>
 
       <div className="game-content">
@@ -121,6 +170,7 @@ export default function GameRoom({ roomId, socketId, roomState, emit, onLeave }:
               key={player.id}
               player={player}
               isMe={player.id === socketId}
+              isHost={player.id === roomState.hostId}
               gamePhase={roomState.gamePhase}
               scoreDelayMs={gameConfigs[roomState.gameType]?.revealDelayMs ?? 0}
             />

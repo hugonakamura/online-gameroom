@@ -66,8 +66,13 @@ function getRoomState(room: Room, playerId?: string): RoomState {
     playerId !== undefined && handler.sanitizeGameState
       ? handler.sanitizeGameState(room, playerId)
       : room.gameState;
+  const hostPerson =
+    room.players.find((p) => p.sessionId === room.hostSessionId) ??
+    room.spectators.find((s) => s.sessionId === room.hostSessionId);
   return {
     roomId: room.id,
+    hostId: hostPerson?.id ?? '',
+    maxPlayers: handler.maxPlayers,
     players: room.players.map((p) => ({
       id: p.id,
       nickname: p.nickname,
@@ -131,6 +136,17 @@ function afterPlayerRemoved(room: Room): void {
   room.gamePhase = room.players.length >= minPlayers ? 'choosing' : 'waiting';
 }
 
+/**
+ * Transfer host to the next oldest person in the room when the host permanently leaves.
+ * Players take priority over spectators (oldest by position in array).
+ * Only called on leave_room and disconnect timeout — NOT on become_spectator.
+ */
+function transferHostIfNeeded(room: Room, removedSessionId: string): void {
+  if (removedSessionId !== room.hostSessionId) return;
+  const next = room.players[0] ?? room.spectators[0];
+  if (next) room.hostSessionId = next.sessionId;
+}
+
 // ── Socket handlers ────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
   console.log(`[+] Connected: ${socket.id}`);
@@ -155,7 +171,7 @@ io.on('connection', (socket) => {
       let roomId = generateRoomId(safeGameType);
       while (rooms.has(roomId)) roomId = generateRoomId(safeGameType);
 
-      const room: Room = { id: roomId, players: [], spectators: [], gamePhase: 'waiting', gameType: safeGameType };
+      const room: Room = { id: roomId, players: [], spectators: [], gamePhase: 'waiting', gameType: safeGameType, hostSessionId: sessionId };
       rooms.set(roomId, room);
 
       socket.leave('lobby');
@@ -398,6 +414,7 @@ io.on('connection', (socket) => {
     if (spectatorIdx !== -1) {
       const spectator = room.spectators[spectatorIdx];
       room.spectators = room.spectators.filter((s) => s.id !== socket.id);
+      transferHostIfNeeded(room, spectator.sessionId);
       sessions.delete(spectator.sessionId);
       socket.join('lobby');
       if (room.players.length >= 1) broadcastRoomUpdate(room);
@@ -413,6 +430,7 @@ io.on('connection', (socket) => {
     if (player.disconnectTimer) clearTimeout(player.disconnectTimer);
 
     room.players = room.players.filter((p) => p.id !== socket.id);
+    transferHostIfNeeded(room, player.sessionId);
     sessions.delete(player.sessionId);
     socket.leave(roomId);
 
@@ -430,6 +448,42 @@ io.on('connection', (socket) => {
     broadcastLobby();
   });
 
+  socket.on('change_game', ({ gameType }: { gameType: GameType }) => {
+    const roomId = socketRooms.get(socket.id);
+    if (!roomId) return;
+
+    const room = rooms.get(roomId);
+    if (!room) return;
+
+    // Validate game type
+    const validGameTypes = Object.keys(gameHandlers) as GameType[];
+    if (!validGameTypes.includes(gameType)) return;
+
+    // Only host can change game (host may be a player or spectator)
+    const person = [...room.players, ...room.spectators].find((p) => p.id === socket.id);
+    if (!person || person.sessionId !== room.hostSessionId) return;
+
+    // Move excess players (newest first) to spectators if the new game has a lower cap
+    const newHandler = gameHandlers[gameType];
+    if (newHandler.maxPlayers !== undefined) {
+      while (room.players.length > newHandler.maxPlayers) {
+        const excess = room.players.pop()!;
+        room.spectators.push({ id: excess.id, sessionId: excess.sessionId, nickname: excess.nickname, score: excess.score });
+      }
+    }
+
+    // Reset game state; clear acted flags on remaining players
+    room.players.forEach((p) => { delete p.hasActed; });
+    room.gameType = gameType;
+    room.gameState = undefined;
+    room.gamePhase = 'waiting';
+    tryStartGame(room);
+
+    broadcastRoomUpdate(room);
+    broadcastLobby();
+    console.log(`[~] Room ${roomId}: game changed to ${gameType} by ${person.nickname}`);
+  });
+
   socket.on('disconnect', () => {
     const roomId = socketRooms.get(socket.id);
     socketRooms.delete(socket.id);
@@ -443,6 +497,7 @@ io.on('connection', (socket) => {
     if (spectatorIdx !== -1) {
       const spectator = room.spectators[spectatorIdx];
       room.spectators = room.spectators.filter((s) => s.id !== socket.id);
+      transferHostIfNeeded(room, spectator.sessionId);
       sessions.delete(spectator.sessionId);
       if (room.players.length >= 1) broadcastRoomUpdate(room);
       if (room.players.length === 0 && room.spectators.length === 0) rooms.delete(roomId);
@@ -465,6 +520,7 @@ io.on('connection', (socket) => {
       if (player.id !== socket.id) return;
 
       room.players = room.players.filter((p) => p.sessionId !== player.sessionId);
+      transferHostIfNeeded(room, player.sessionId);
       sessions.delete(player.sessionId);
 
       if (room.players.length === 0 && room.spectators.length === 0) {

@@ -576,6 +576,62 @@ body {
   border-color: var(--accent);
 }
 
+/* ── Host badge ─────────────────────────────────────────────────────────── */
+.host-badge {
+  font-size: 0.75em;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+/* ── Game switcher (host only) ──────────────────────────────────────────── */
+.game-switcher {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.game-switcher select {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.game-switcher select:hover,
+.game-switcher select:focus {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--text-muted);
+  outline: none;
+}
+
+.game-switch-warning {
+  font-size: 0.78rem;
+  color: #f5a623;
+  white-space: nowrap;
+}
+
+.btn-change-game {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid #f5a623;
+  background: rgba(245, 166, 35, 0.1);
+  color: #f5a623;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-change-game:hover {
+  background: rgba(245, 166, 35, 0.2);
+}
+
 /* ── Player count: spectator sub-count ───────────────────────────────────── */
 .spectator-count {
   color: var(--text-muted);
