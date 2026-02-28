@@ -25,6 +25,7 @@ export const rpsHandler: GameHandler = {
 
   onGameInput(room: Room, player: Player, payload: unknown): void {
     const state = room.gameState as RPSState;
+    if (typeof payload !== 'object' || payload === null) return;
     const { choice } = payload as { choice: RPSChoice };
     if (!Object.keys(BEATS).includes(choice)) return;
 

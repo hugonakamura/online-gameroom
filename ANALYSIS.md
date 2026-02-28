@@ -282,8 +282,8 @@ These have correctness, security, or crash impact that affects users right now.
 | # | Issue | Section |
 |---|---|---|
 | 1 | No error boundaries around game views / No error recovery | §2, §5 |
-| 2 - DONE| No error handling on game handler calls | §2 |
-| 3 | No payload validation on the server | §2 |
+| 2 - DONE | No error handling on game handler calls | §2 |
+| 3 - DONEish | No payload validation on the server | §2 |
 | 4 - DONE | `findIndex` returning `-1` used directly as array index | §1 |
 | 5 | Race conditions in game state transitions | §1 |
 | 6 - DONE | No rate limiting on socket events | §3 |

@@ -46,7 +46,9 @@ export const ticTacToeHandler: GameHandler = {
     const state = room.gameState as TicTacToeState;
     if (!state) return;
 
+    if (typeof payload !== 'object' || payload === null) return;
     const { cellIndex } = payload as { cellIndex: number };
+    if (typeof cellIndex !== 'number') return;
     const playerIndex = room.players.findIndex((p) => p.id === player.id);
     if (playerIndex === -1) return;
 

@@ -16,6 +16,7 @@ export const coinFlipHandler: GameHandler = {
 
   onGameInput(room: Room, player: Player, payload: unknown): void {
     const state = room.gameState as CoinFlipState;
+    if (typeof payload !== 'object' || payload === null) return;
     const { choice } = payload as { choice: CoinSide };
     if (choice !== 'heads' && choice !== 'tails') return;
 

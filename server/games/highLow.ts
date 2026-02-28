@@ -50,6 +50,7 @@ export const highLowHandler: GameHandler = {
 
   onGameInput(room: Room, player: Player, payload: unknown): void {
     const state = room.gameState as InternalState;
+    if (typeof payload !== 'object' || payload === null) return;
     const { choice } = payload as { choice: HighLowChoice };
     if (choice !== 'higher' && choice !== 'lower') return; // reject 'hidden'
 
