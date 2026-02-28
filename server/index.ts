@@ -18,6 +18,27 @@ const io = new Server(httpServer, {
 
 const PORT = process.env.PORT || 3001;
 
+// ── Rate limiting ───────────────────────────────────────────────────────────────
+// Simple fixed-window counter per socket. Resets every RATE_WINDOW_MS.
+// Prevents a single client from flooding game events and overwhelming the server.
+const RATE_WINDOW_MS  = 1_000; // 1 second window
+const RATE_MAX_EVENTS = 20;    // max game events per window per socket
+
+const rateLimits = new Map<string, { count: number; windowStart: number }>();
+
+function isRateLimited(socketId: string): boolean {
+  const now   = Date.now();
+  const entry = rateLimits.get(socketId) ?? { count: 0, windowStart: now };
+  if (now - entry.windowStart >= RATE_WINDOW_MS) {
+    entry.count      = 1;
+    entry.windowStart = now;
+  } else {
+    entry.count += 1;
+  }
+  rateLimits.set(socketId, entry);
+  return entry.count > RATE_MAX_EVENTS;
+}
+
 // Serve React app in production
 if (process.env.NODE_ENV === 'production') {
   const clientDist = path.join(__dirname, '..', 'client', 'dist');
@@ -301,6 +322,7 @@ io.on('connection', (socket) => {
   );
 
   socket.on('game_input', (payload: unknown) => {
+    if (isRateLimited(socket.id)) return;
     const roomId = socketRooms.get(socket.id);
     if (!roomId) return;
 
@@ -315,6 +337,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('game_action', () => {
+    if (isRateLimited(socket.id)) return;
     const roomId = socketRooms.get(socket.id);
     if (!roomId) return;
 
@@ -328,6 +351,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('play_again', () => {
+    if (isRateLimited(socket.id)) return;
     const roomId = socketRooms.get(socket.id);
     if (!roomId) return;
 
@@ -341,6 +365,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('become_spectator', () => {
+    if (isRateLimited(socket.id)) return;
     const roomId = socketRooms.get(socket.id);
     if (!roomId) return;
 
@@ -375,6 +400,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('sit_in', () => {
+    if (isRateLimited(socket.id)) return;
     const roomId = socketRooms.get(socket.id);
     if (!roomId) return;
 
@@ -450,6 +476,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('change_game', ({ gameType }: { gameType: GameType }) => {
+    if (isRateLimited(socket.id)) return;
     const roomId = socketRooms.get(socket.id);
     if (!roomId) return;
 
@@ -486,6 +513,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
+    rateLimits.delete(socket.id);
     const roomId = socketRooms.get(socket.id);
     socketRooms.delete(socket.id);
     if (!roomId) return;
