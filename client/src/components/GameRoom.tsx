@@ -9,6 +9,8 @@ interface Props {
   gameOptions: GameOption[];
   emit: (event: string, payload?: unknown) => void;
   onLeave: () => void;
+  roomError: string | null;
+  onClearRoomError: () => void;
 }
 
 function PlayerCard({
@@ -83,7 +85,7 @@ function SpectatorStrip({ spectators, socketId, hostId }: { spectators: Spectato
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 
-export default function GameRoom({ roomId, socketId, roomState, gameOptions, emit, onLeave }: Props) {
+export default function GameRoom({ roomId, socketId, roomState, gameOptions, emit, onLeave, roomError, onClearRoomError }: Props) {
   const GameView = gameViews[roomState.gameType];
   const isSpectator = roomState.spectators.some((s) => s.id === socketId);
   const isHost = roomState.hostId === socketId;
@@ -153,6 +155,13 @@ export default function GameRoom({ roomId, socketId, roomState, gameOptions, emi
         </div>
         <SpectatorStrip spectators={roomState.spectators} socketId={socketId} hostId={roomState.hostId} />
       </header>
+
+      {roomError && (
+        <div className="room-error-banner">
+          <span>{roomError}</span>
+          <button className="room-error-dismiss" onClick={onClearRoomError}>✕</button>
+        </div>
+      )}
 
       <div className="game-content">
         {/* Players */}

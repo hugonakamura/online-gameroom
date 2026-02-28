@@ -36,6 +36,7 @@ function App() {
   const [roomId, setRoomId]           = useState('');
   const [roomState, setRoomState]     = useState<RoomState | null>(null);
   const [joinError, setJoinError]     = useState<string | null>(null);
+  const [roomError, setRoomError]     = useState<string | null>(null);
   const [lobbyRooms, setLobbyRooms]   = useState<LobbyRoom[]>([]);
   const [gameOptions, setGameOptions] = useState<GameOption[]>([]);
 
@@ -84,7 +85,12 @@ function App() {
       inRoomRef.current = false;
     });
 
+    s.on('room_error', ({ message }: { message: string }) => {
+      setRoomError(message);
+    });
+
     s.on('room_update', (state: RoomState) => {
+      setRoomError(null); // clear any transient error when a successful update arrives
       setRoomState(state);
       setRoomId(state.roomId);
       localStorage.setItem('flip_socket_room', state.roomId);
@@ -200,6 +206,8 @@ function App() {
               gameOptions={gameOptions}
               emit={(event, payload) => socket?.emit(event, payload)}
               onLeave={handleLeave}
+              roomError={roomError}
+              onClearRoomError={() => setRoomError(null)}
             />
           : <Navigate to="/" replace />
       } />

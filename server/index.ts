@@ -354,8 +354,13 @@ io.on('connection', (socket) => {
     const player = room.players.find((p) => p.id === socket.id);
     if (!player) return;
 
-    gameHandlers[room.gameType].onGameInput(room, player, payload);
-    broadcastRoomUpdate(room);
+    try {
+      gameHandlers[room.gameType].onGameInput(room, player, payload);
+      broadcastRoomUpdate(room);
+    } catch (err) {
+      console.error(`[!] game_input handler threw in room ${roomId}:`, err);
+      socket.emit('room_error', { message: 'An error occurred processing your input.' });
+    }
   });
 
   socket.on('game_action', () => {
@@ -367,9 +372,14 @@ io.on('connection', (socket) => {
     if (!room || room.gamePhase !== 'ready') return;
 
     const player = room.players.find((p) => p.id === socket.id)!;
-    gameHandlers[room.gameType].onGameAction(room, player);
-    broadcastRoomUpdate(room);
-    console.log(`[~] Room ${roomId}: game_action by ${player.nickname}`);
+    try {
+      gameHandlers[room.gameType].onGameAction(room, player);
+      broadcastRoomUpdate(room);
+      console.log(`[~] Room ${roomId}: game_action by ${player.nickname}`);
+    } catch (err) {
+      console.error(`[!] game_action handler threw in room ${roomId}:`, err);
+      socket.emit('room_error', { message: 'An error occurred processing your action.' });
+    }
   });
 
   socket.on('play_again', () => {
@@ -382,8 +392,13 @@ io.on('connection', (socket) => {
 
     const player = room.players.find((p) => p.id === socket.id);
     if (!player) return;
-    gameHandlers[room.gameType].onPlayAgain(room, player);
-    broadcastRoomUpdate(room);
+    try {
+      gameHandlers[room.gameType].onPlayAgain(room, player);
+      broadcastRoomUpdate(room);
+    } catch (err) {
+      console.error(`[!] play_again handler threw in room ${roomId}:`, err);
+      socket.emit('room_error', { message: 'An error occurred starting the next round.' });
+    }
   });
 
   socket.on('become_spectator', () => {
