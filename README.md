@@ -84,7 +84,7 @@ flip-socket/
 
 ## Adding a new game
 
-Adding a game means editing **exactly 5 files** and creating **2–3 new files**. Nothing in the platform layer (`server/index.ts`, `App.tsx`) needs to change.
+Adding a game means editing **exactly 3 files** and creating **2–3 new files**. Nothing in the platform layer (`server/index.ts`, `App.tsx`, `JoinRoom.tsx`, `GameRoom.tsx`) needs to change — the lobby and in-room game switcher both populate their option lists dynamically from the server.
 
 The example below adds a hypothetical dice game.
 
@@ -95,8 +95,6 @@ The example below adds a hypothetical dice game.
 | `shared/types.ts` | `'dice'` to the `GameType` union + a `DiceState` interface |
 | `server/games/index.ts` | `import { diceHandler } from './dice'` + `dice: diceHandler` in the registry |
 | `client/src/components/games/index.ts` | `dice: lazy(() => import('./Dice'))` in the registry |
-| `client/src/components/JoinRoom.tsx` | `{ value: 'dice', label: '🎲 Dice' }` in the `GAME_OPTIONS` array |
-| `client/src/components/GameRoom.tsx` | `{ value: 'dice', label: '🎲 Dice', maxPlayers: N }` in the `GAME_OPTIONS` array (used by the host game-switcher and overflow warning) |
 
 ### Files to create
 
@@ -104,7 +102,7 @@ The example below adds a hypothetical dice game.
 |---|---|
 | `server/games/dice.ts` | A `GameHandler` object — see interface below |
 | `client/src/components/games/Dice/index.tsx` | A React component that receives `GameViewProps` and renders the game UI |
-| `client/src/components/games/Dice/Dice.css` | Game-specific styles |
+| `client/src/components/games/Dice/Dice.css` | Game-specific styles (optional) |
 
 ### GameHandler interface
 
@@ -112,6 +110,7 @@ The example below adds a hypothetical dice game.
 // server/games/index.ts
 interface GameHandler {
   roomIdPrefix: string;                              // room ID prefix, e.g. 'DICE' → room IDs like 'DICE-A1B2C'
+  label: string;                                     // display name shown in the lobby and host game-switcher, e.g. '🎲 Dice'
   maxPlayers?: number;                               // cap enforced on join and on game switch; omit for no limit
   minPlayers?: number;                               // players needed to start a round (defaults to 2)
   onGameStart?(room: Room): void;                    // initialize gameState; called on first join and after any player leaves
@@ -123,6 +122,7 @@ interface GameHandler {
 ```
 
 Key rules:
+- `label` and `maxPlayers` on the handler are sent to all clients on connect via the `game_options` event — the lobby dropdown and the host's in-room game switcher both use this data automatically.
 - Store all game state in `room.gameState` (typed however you like — cast with `as YourState`).
 - `room.gamePhase` is the platform field that drives the client UI — set it to `'choosing'`, `'ready'`, or `'result'` as the game progresses.
 - The only per-player platform field game handlers may use is `player.hasActed` (set it in `onGameInput`; clear it in `onGameStart`).
