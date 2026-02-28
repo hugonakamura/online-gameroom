@@ -287,7 +287,7 @@ These have correctness, security, or crash impact that affects users right now.
 | 4 - DONE | `findIndex` returning `-1` used directly as array index | §1 |
 | 5 | Race conditions in game state transitions | §1 |
 | 6 - DONE | No rate limiting on socket events | §3 |
-| 7 | No connection or room limits | §3 |
+| 7 - DONE | No connection or room limits | §3 |
 
 ### P2 — Address soon
 

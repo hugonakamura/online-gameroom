@@ -18,6 +18,11 @@ const io = new Server(httpServer, {
 
 const PORT = process.env.PORT || 3001;
 
+// ── Connection & room limits ────────────────────────────────────────────────────
+const MAX_CONNECTIONS        = 200; // total concurrent sockets before new ones are rejected
+const MAX_ROOMS              = 50;  // total concurrent rooms
+const MAX_SPECTATORS_PER_ROOM = 20; // spectators allowed per room
+
 // ── Rate limiting ───────────────────────────────────────────────────────────────
 // Simple fixed-window counter per socket. Resets every RATE_WINDOW_MS.
 // Prevents a single client from flooding game events and overwhelming the server.
@@ -170,6 +175,13 @@ function transferHostIfNeeded(room: Room, removedSessionId: string): void {
 
 // ── Socket handlers ────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
+  // io.sockets.sockets.size already includes the new socket at this point.
+  if (io.sockets.sockets.size > MAX_CONNECTIONS) {
+    socket.emit('join_error', { message: 'Server is full. Please try again later.' });
+    socket.disconnect(true);
+    return;
+  }
+
   console.log(`[+] Connected: ${socket.id}`);
 
   // New connections go to the lobby and immediately get the current room list.
@@ -182,6 +194,11 @@ io.on('connection', (socket) => {
     ({ nickname, sessionId, gameType }: { nickname: string; sessionId: string; gameType: GameType }) => {
       if (!nickname?.trim()) {
         socket.emit('join_error', { message: 'Nickname is required.' });
+        return;
+      }
+
+      if (rooms.size >= MAX_ROOMS) {
+        socket.emit('join_error', { message: 'Too many active rooms. Please try again later.' });
         return;
       }
 
@@ -281,9 +298,14 @@ io.on('connection', (socket) => {
         room = { id: cleanRoomId, players: [], spectators: [], gamePhase: 'waiting', gameType: safeGameType };
         rooms.set(cleanRoomId, room);
       }
+      if (!room) return; // unreachable — satisfies TypeScript narrowing after conditional assignment
 
       // ── Spectator join ─────────────────────────────────────────────────────
       if (role === 'spectator') {
+        if (room.spectators.length >= MAX_SPECTATORS_PER_ROOM) {
+          socket.emit('join_error', { message: 'Spectator limit reached for this room.' });
+          return;
+        }
         socketRooms.set(socket.id, cleanRoomId);
         sessions.set(sessionId, cleanRoomId);
         room.spectators.push({ id: socket.id, sessionId, nickname: cleanNickname, score: 0 });
